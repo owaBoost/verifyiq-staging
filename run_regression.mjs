@@ -13,6 +13,33 @@ import 'dotenv/config';
 import axios from 'axios';
 import jwt from 'jsonwebtoken';
 import { readFileSync } from 'fs';
+import { randomUUID } from 'crypto';
+
+// -- PascalCase -> SCREAMING_SNAKE_CASE mapping for /ai-gateway/batch-upload --
+
+const GATEWAY_DOCTYPE_MAP = {
+  BankStatement: 'BANK_STATEMENT',
+  Payslip: 'PAYSLIP',
+  ElectricUtilityBillingStatement: 'ELECTRICITY_BILL',
+  PLDTTelcoBill: 'TelcoBill',
+  WaterUtilityBillingStatement: 'WaterBill',
+  PhilippineNationalID: 'PHILIPPINE_NATIONAL_ID',
+  DriversLicense: 'DRIVERS_LICENSE',
+  Passport: 'PASSPORT',
+  UMID: 'UMID',
+  SSSID: 'SSS_ID',
+  TINID: 'TIN_ID',
+  PhilHealthID: 'PHILHEALTH_ID',
+  HDMFID: 'HDMF_ID',
+  PostalID: 'POSTAL_ID',
+  PRCID: 'PRC_ID',
+  VotersID: 'VOTERS_ID',
+  NBIClearance: 'NBI_CLEARANCE',
+  ACRICard: 'ACRI_CARD',
+  BIRForm2303: 'BIRForm2303',
+  DTIRegistrationCertificate: 'DTIRegistrationCertificate',
+  CertificateOfEmployment: 'COE',
+};
 
 // -- Config -------------------------------------------------------------------
 
@@ -130,7 +157,7 @@ async function runHealthCheck() {
 async function runSingleParse(fixture, file) {
   const payload = {
     file,
-    documentType: fixture.documentType,
+    fileType: fixture.documentType,
     classification: 'PRIMARY',
   };
 
@@ -151,14 +178,20 @@ async function runSingleParse(fixture, file) {
 // -- Batch upload -------------------------------------------------------------
 
 async function runBatchUpload(fixture) {
+  const gatewayDocType = GATEWAY_DOCTYPE_MAP[fixture.documentType] || fixture.documentType;
   const documents = fixture.files.map(file => ({
+    documentId: randomUUID(),
     preSignedUrl: file,
-    documentType: fixture.documentType,
+    documentType: gatewayDocType,
     classification: 'PRIMARY',
   }));
 
   const payload = {
-    payload: { documents },
+    payload: {
+      publicUserId: `regression-${fixture.id}-${Date.now()}`,
+      submissionId: randomUUID(),
+      documents,
+    },
   };
 
   const client = createStagingClient(true);
@@ -286,8 +319,8 @@ async function main() {
         results.push({ file, status: 0, passed: false, body: null, summary: `Error: ${err.message}` });
         console.log(`    FAIL Error: ${err.message}`);
       }
-      // Small delay between requests to avoid rate limits
-      await sleep(500);
+      // Delay between requests to stay under 30/min rate limit
+      await sleep(2500);
     }
 
     // Also run as batch via /ai-gateway/batch-upload
