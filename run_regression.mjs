@@ -3,10 +3,10 @@
  * Staging Regression Runner -- loops through permanent fixtures in regression-suite.json
  * and sends each to the VerifyIQ staging API.
  *
- * Single-doc fixtures -> POST /v1/documents/parse
+ * Single-doc fixtures -> POST /v1/documents/parse (with response field validation)
  * Batch fixtures      -> POST /ai-gateway/batch-upload (with webhook callback polling)
  *
- * Results are posted to ClickUp.
+ * Results are posted to ClickUp (updates existing tasks, creates new ones if needed).
  */
 
 import 'dotenv/config';
@@ -41,13 +41,86 @@ const GATEWAY_DOCTYPE_MAP = {
   CertificateOfEmployment: 'COE',
 };
 
+// -- Per-doctype response field validation ------------------------------------
+
+const RESPONSE_VALIDATORS = {
+  BIRForm2303: (body) => {
+    const errors = [];
+    if (!body.summaryOCR) errors.push('missing summaryOCR');
+    if (!body.documentData) errors.push('missing documentData');
+    return errors;
+  },
+  ElectricUtilityBillingStatement: (body) => {
+    const errors = [];
+    if (!body.summaryOCR) errors.push('missing summaryOCR');
+    if (!body.documentData) errors.push('missing documentData');
+    const dd = body.documentData || {};
+    if (!dd.bill_period_start && !dd.billing_period) errors.push('missing bill_period_start or billing_period');
+    if (!dd.gs_amountdue_elecbill) errors.push('missing gs_amountdue_elecbill');
+    return errors;
+  },
+  PhilippineNationalID: (body) => {
+    const errors = [];
+    if (!body.summaryOCR) errors.push('missing summaryOCR');
+    if (!body.documentData) errors.push('missing documentData');
+    return errors;
+  },
+  DriversLicense: (body) => {
+    const errors = [];
+    if (!body.summaryOCR) errors.push('missing summaryOCR');
+    if (!body.documentData) errors.push('missing documentData');
+    return errors;
+  },
+  WaterUtilityBillingStatement: (body) => {
+    const errors = [];
+    if (!body.summaryOCR) errors.push('missing summaryOCR');
+    if (!body.documentData) errors.push('missing documentData');
+    return errors;
+  },
+  BankStatement: (body) => {
+    const errors = [];
+    if (!body.summaryOCR) errors.push('missing summaryOCR');
+    if (!body.transactionsOCR || !Array.isArray(body.transactionsOCR) || body.transactionsOCR.length === 0) {
+      errors.push('missing or empty transactionsOCR');
+    }
+    if (!body.fraudChecks) errors.push('missing fraudChecks');
+    return errors;
+  },
+  Payslip: (body) => {
+    const errors = [];
+    if (!body.summaryOCR) errors.push('missing summaryOCR');
+    if (!body.documentData) errors.push('missing documentData');
+    const dd = body.documentData || {};
+    if (!dd.gross_pay && !dd.net_pay) errors.push('missing both gross_pay and net_pay');
+    return errors;
+  },
+  NBIClearance: (body) => {
+    const errors = [];
+    if (!body.summaryOCR) errors.push('missing summaryOCR');
+    if (!body.documentData) errors.push('missing documentData');
+    return errors;
+  },
+  Passport: (body) => {
+    const errors = [];
+    if (!body.summaryOCR) errors.push('missing summaryOCR');
+    if (!body.documentData) errors.push('missing documentData');
+    return errors;
+  },
+  DTIRegistrationCertificate: (body) => {
+    const errors = [];
+    if (!body.summaryOCR) errors.push('missing summaryOCR');
+    if (!body.documentData) errors.push('missing documentData');
+    return errors;
+  },
+};
+
 // -- Config -------------------------------------------------------------------
 
 const STAGING_URL = (process.env.STAGING_URL || 'https://ai-boostform-api-1019050071398.us-central1.run.app').replace(/\/$/, '');
 const VERIFYIQ_KEY = process.env.VERIFYIQ_API_KEY;
 const GOOGLE_SA_KEY_FILE = process.env.GOOGLE_SA_KEY_FILE;
 const CLICKUP_TOKEN = process.env.CLICKUP_API_TOKEN;
-const CLICKUP_FOLDER_ID = process.env.CLICKUP_FOLDER_ID || '90147709410';
+const CLICKUP_FOLDER_ID = process.env.CLICKUP_FOLDER_ID || '90147720582';
 const WEBHOOK_SERVER_URL = (process.env.WEBHOOK_SERVER_URL || '').trim().replace(/\/$/, '');
 const DECRYPT_URL = process.env.DECRYPT_URL || 'https://us-central1-boost-capital-staging.cloudfunctions.net/verifyiq-gateway/utils/decrypt';
 let WEBHOOK_TOKEN_ID = null;
@@ -156,7 +229,7 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 async function getWebhookBaseline() {
   const res = await axios.get(
-    `${WEBHOOK_SERVER_URL}/token/${WEBHOOK_TOKEN_ID}/requests?per_page=50`,
+    `${WEBHOOK_SERVER_URL}/token/${WEBHOOK_TOKEN_ID}/requests?per_page=200`,
     { headers: { Authorization: `Bearer ${getWebhookIapToken()}` }, validateStatus: () => true }
   );
   return res.data?.data?.length ?? 0;
@@ -167,7 +240,7 @@ async function pollWebhookCallbacks(baselineCount, expectedCount, applicationId,
   while (Date.now() - start < timeoutMs) {
     await sleep(3_000);
     const res = await axios.get(
-      `${WEBHOOK_SERVER_URL}/token/${WEBHOOK_TOKEN_ID}/requests?per_page=50`,
+      `${WEBHOOK_SERVER_URL}/token/${WEBHOOK_TOKEN_ID}/requests?per_page=200`,
       { headers: { Authorization: `Bearer ${getWebhookIapToken()}` }, validateStatus: () => true }
     );
     const all = res.data?.data ?? [];
@@ -287,7 +360,7 @@ async function runHealthCheck() {
   console.log(`  /health -- status=${res.data.status}, revision=${res.data.revision}`);
 }
 
-// -- Single-doc parse ---------------------------------------------------------
+// -- Single-doc parse with response validation --------------------------------
 
 async function runSingleParse(fixture, file) {
   const payload = {
@@ -299,14 +372,36 @@ async function runSingleParse(fixture, file) {
   const client = createStagingClient(false);
   const res = await client.post('/v1/documents/parse', payload);
 
+  if (res.status !== 200) {
+    return {
+      file,
+      status: res.status,
+      passed: false,
+      body: res.data,
+      summary: `HTTP ${res.status} -- ${JSON.stringify(res.data).slice(0, 200)}`,
+    };
+  }
+
+  // Validate response fields per document type
+  const validator = RESPONSE_VALIDATORS[fixture.documentType];
+  const fieldErrors = validator ? validator(res.data) : [];
+
+  if (fieldErrors.length) {
+    return {
+      file,
+      status: res.status,
+      passed: false,
+      body: res.data,
+      summary: `HTTP 200 but validation failed: ${fieldErrors.join(', ')}`,
+    };
+  }
+
   return {
     file,
     status: res.status,
-    passed: res.status === 200,
+    passed: true,
     body: res.data,
-    summary: res.status === 200
-      ? `HTTP 200 -- parsed as ${res.data?.documentType ?? fixture.documentType}`
-      : `HTTP ${res.status} -- ${JSON.stringify(res.data).slice(0, 200)}`,
+    summary: `HTTP 200 -- parsed as ${res.data?.documentType ?? fixture.documentType}`,
   };
 }
 
@@ -442,19 +537,43 @@ async function runBatchUpload(fixture) {
   };
 }
 
-// -- ClickUp reporting --------------------------------------------------------
+// -- ClickUp reporting (update existing tasks, create if not found) ------------
 
 let clickupListId = null;
+let existingTasks = {}; // name -> task id
 
-async function createClickUpList() {
+async function createOrReuseClickUpList() {
   if (!clickup) {
     console.warn('  CLICKUP_API_TOKEN not set -- ClickUp integration disabled');
     return;
   }
 
-  const timestamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
-  const listName = `Staging Regression -- ${timestamp}`;
+  const listName = 'Staging Regression';
 
+  // Look for existing list with this name
+  try {
+    const { data: folder } = await clickup.get(`/folder/${CLICKUP_FOLDER_ID}/list`);
+    const existing = folder.lists.find(l => l.name === listName);
+    if (existing) {
+      clickupListId = existing.id;
+      console.log(`  Reusing existing ClickUp list: ${listName} (${clickupListId})`);
+      // Load existing tasks for dedup
+      try {
+        const { data } = await clickup.get(`/list/${clickupListId}/task`);
+        for (const task of (data.tasks ?? [])) {
+          existingTasks[task.name] = task.id;
+        }
+        console.log(`  Loaded ${Object.keys(existingTasks).length} existing tasks for dedup`);
+      } catch (err) {
+        console.warn(`  Could not load existing tasks: ${err.message}`);
+      }
+      return;
+    }
+  } catch (err) {
+    console.warn(`  Could not list folder: ${err.message}`);
+  }
+
+  // Create new list
   try {
     const { data } = await clickup.post(`/folder/${CLICKUP_FOLDER_ID}/list`, {
       name: listName,
@@ -462,21 +581,6 @@ async function createClickUpList() {
     clickupListId = data.id;
     console.log(`  ClickUp list created: ${listName} (${clickupListId})`);
   } catch (err) {
-    const errCode = err.response?.data?.ECODE ?? '';
-    if (errCode === 'SUBCAT_016') {
-      console.log(`  List "${listName}" already exists, looking up...`);
-      try {
-        const { data: folder } = await clickup.get(`/folder/${CLICKUP_FOLDER_ID}/list`);
-        const existing = folder.lists.find(l => l.name === listName);
-        if (existing) {
-          clickupListId = existing.id;
-          console.log(`  Reusing existing ClickUp list (${clickupListId})`);
-          return;
-        }
-      } catch (e) {
-        console.warn(`  Lookup failed: ${e.message}`);
-      }
-    }
     console.warn(`  Could not create ClickUp list: ${err.message}`);
   }
 }
@@ -495,21 +599,47 @@ async function postClickUpResult(fixture, results) {
     return `${rIcon} **${fileName}** -- ${r.summary}`;
   });
 
+  const timestamp = new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
+  const description = [
+    `**Fixture:** ${fixture.id}`,
+    `**Document Type:** ${fixture.documentType}`,
+    `**Bucket:** ${fixture.bucket}`,
+    `**Last Run:** ${timestamp}`,
+    `**Results:**`,
+    '',
+    ...lines,
+  ].join('\n');
+
+  // Find existing task by fixture ID prefix in task name
+  const taskNamePrefix = `${fixture.id} --`;
+  const existingTaskId = Object.entries(existingTasks).find(([name]) => name.startsWith(taskNamePrefix))?.[1];
+  const taskName = `${icon} ${fixture.id} -- ${fixture.documentType} (${passedCount}/${totalCount})`;
+
   try {
-    const { data } = await clickup.post(`/list/${clickupListId}/task`, {
-      name: `${icon} ${fixture.id} -- ${fixture.documentType} (${passedCount}/${totalCount})`,
-      description: [
-        `**Fixture:** ${fixture.id}`,
-        `**Document Type:** ${fixture.documentType}`,
-        `**Bucket:** ${fixture.bucket}`,
-        `**Results:**`,
-        '',
-        ...lines,
-      ].join('\n'),
-      tags: ['regression', fixture.documentType],
-      status,
-    });
-    console.log(`  ClickUp: ${data.url}`);
+    if (existingTaskId) {
+      // Update existing task
+      await clickup.put(`/task/${existingTaskId}`, {
+        name: taskName,
+        description,
+        status,
+      });
+      console.log(`  ClickUp updated: ${existingTaskId}`);
+      // Post run result as comment
+      await clickup.post(`/task/${existingTaskId}/comment`, {
+        comment_text: `**${timestamp}** -- ${icon} ${passedCount}/${totalCount}\n\n${lines.join('\n')}`,
+        notify_all: false,
+      });
+    } else {
+      // Create new task
+      const { data } = await clickup.post(`/list/${clickupListId}/task`, {
+        name: taskName,
+        description,
+        tags: ['regression', fixture.documentType],
+        status,
+      });
+      existingTasks[taskName] = data.id;
+      console.log(`  ClickUp created: ${data.url}`);
+    }
   } catch (err) {
     console.warn(`  ClickUp task failed for ${fixture.id}: ${err.message}`);
   }
@@ -530,7 +660,7 @@ async function main() {
   }
 
   await runHealthCheck();
-  await createClickUpList();
+  await createOrReuseClickUpList();
 
   // Create a fresh webhook token for batch tests
   const batchEnvReady = GOOGLE_SA_KEY_FILE && WEBHOOK_SERVER_URL;
