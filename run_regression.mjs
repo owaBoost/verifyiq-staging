@@ -97,6 +97,7 @@ const VERIFYIQ_KEY = process.env.VERIFYIQ_API_KEY;
 const GOOGLE_SA_KEY_FILE = process.env.GOOGLE_SA_KEY_FILE;
 const CLICKUP_TOKEN = process.env.CLICKUP_API_TOKEN;
 const CLICKUP_FOLDER_ID = process.env.CLICKUP_FOLDER_ID || '90147720582';
+const CLICKUP_LIST_ID = process.env.CLICKUP_LIST_ID || '901415180752';
 const WEBHOOK_SERVER_URL = (process.env.WEBHOOK_SERVER_URL || '').trim().replace(/\/$/, '');
 const DECRYPT_URL = process.env.DECRYPT_URL || 'https://us-central1-boost-capital-staging.cloudfunctions.net/verifyiq-gateway/utils/decrypt';
 let WEBHOOK_TOKEN_ID = null;
@@ -876,38 +877,22 @@ async function runBatchUpload(fixture) {
   return { status, passed: true, body, summary: `HTTP 200 ACCEPTED -- ${callbacks.length} callbacks validated` };
 }
 
-// -- ClickUp reporting --------------------------------------------------------
+// -- ClickUp reporting (uses fixed CLICKUP_LIST_ID) ---------------------------
 
-let clickupListId = null;
-let existingTasks = {};
+let existingTasks = {}; // name-prefix -> task id
 
-async function createOrReuseClickUpList() {
+async function loadClickUpTasks() {
   if (!clickup) { console.warn('  CLICKUP_API_TOKEN not set -- disabled'); return; }
-  const listName = 'Staging Regression';
+  console.log(`  Using ClickUp list ${CLICKUP_LIST_ID}`);
   try {
-    const { data: folder } = await clickup.get(`/folder/${CLICKUP_FOLDER_ID}/list`);
-    const existing = folder.lists.find(l => l.name === listName);
-    if (existing) {
-      clickupListId = existing.id;
-      console.log(`  Reusing ClickUp list: ${listName} (${clickupListId})`);
-      try {
-        const { data } = await clickup.get(`/list/${clickupListId}/task`);
-        for (const task of (data.tasks ?? [])) existingTasks[task.name] = task.id;
-        console.log(`  Loaded ${Object.keys(existingTasks).length} existing tasks for dedup`);
-      } catch (err) { console.warn(`  Could not load tasks: ${err.message}`); }
-      return;
-    }
-  } catch (err) { console.warn(`  Could not list folder: ${err.message}`); }
-
-  try {
-    const { data } = await clickup.post(`/folder/${CLICKUP_FOLDER_ID}/list`, { name: listName });
-    clickupListId = data.id;
-    console.log(`  ClickUp list created: ${listName} (${clickupListId})`);
-  } catch (err) { console.warn(`  Could not create ClickUp list: ${err.message}`); }
+    const { data } = await clickup.get(`/list/${CLICKUP_LIST_ID}/task`);
+    for (const task of (data.tasks ?? [])) existingTasks[task.name] = task.id;
+    console.log(`  Loaded ${Object.keys(existingTasks).length} existing tasks for dedup`);
+  } catch (err) { console.warn(`  Could not load tasks: ${err.message}`); }
 }
 
 async function postClickUpResult(fixture, results) {
-  if (!clickupListId) return;
+  if (!clickup) return;
   const passedCount = results.filter(r => r.passed).length;
   const totalCount = results.length;
   const icon = passedCount === totalCount ? 'PASS' : passedCount > 0 ? 'PARTIAL' : 'FAIL';
@@ -938,7 +923,7 @@ async function postClickUpResult(fixture, results) {
         comment_text: `**${timestamp}** -- ${icon} ${passedCount}/${totalCount}\n\n${lines.join('\n')}`, notify_all: false,
       });
     } else {
-      const { data } = await clickup.post(`/list/${clickupListId}/task`, {
+      const { data } = await clickup.post(`/list/${CLICKUP_LIST_ID}/task`, {
         name: taskName, description, tags: ['regression', fixture.testType || 'default'], status,
       });
       existingTasks[taskName] = data.id;
@@ -980,7 +965,7 @@ async function main() {
   }
 
   await runHealthCheck();
-  await createOrReuseClickUpList();
+  await loadClickUpTasks();
 
   const batchEnvReady = GOOGLE_SA_KEY_FILE && WEBHOOK_SERVER_URL;
   if (batchEnvReady) {
