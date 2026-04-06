@@ -42,75 +42,55 @@ const GATEWAY_DOCTYPE_MAP = {
 };
 
 // -- Per-doctype response field validation ------------------------------------
+// summaryOCR is always an array; field-level data lives in summaryOCR[0].
+// gshare_fields holds computed/aggregated values.
+
+function requireSummaryOCR(body) {
+  if (!Array.isArray(body.summaryOCR) || body.summaryOCR.length === 0) return ['missing or empty summaryOCR'];
+  return [];
+}
 
 const RESPONSE_VALIDATORS = {
   BIRForm2303: (body) => {
-    const errors = [];
-    if (!body.summaryOCR) errors.push('missing summaryOCR');
-    if (!body.documentData) errors.push('missing documentData');
-    return errors;
+    return requireSummaryOCR(body);
   },
   ElectricUtilityBillingStatement: (body) => {
-    const errors = [];
-    if (!body.summaryOCR) errors.push('missing summaryOCR');
-    if (!body.documentData) errors.push('missing documentData');
-    const dd = body.documentData || {};
-    if (!dd.bill_period_start && !dd.billing_period) errors.push('missing bill_period_start or billing_period');
-    if (!dd.gs_amountdue_elecbill) errors.push('missing gs_amountdue_elecbill');
+    const errors = requireSummaryOCR(body);
+    const ocr = body.summaryOCR?.[0] || {};
+    if (!ocr.billing_period && !ocr.bill_period_start) errors.push('missing billing_period in summaryOCR');
+    const gs = body.gshare_fields || {};
+    if (!gs.gs_amountdue_elecbill) errors.push('missing gs_amountdue_elecbill in gshare_fields');
     return errors;
   },
   PhilippineNationalID: (body) => {
-    const errors = [];
-    if (!body.summaryOCR) errors.push('missing summaryOCR');
-    if (!body.documentData) errors.push('missing documentData');
-    return errors;
+    return requireSummaryOCR(body);
   },
   DriversLicense: (body) => {
-    const errors = [];
-    if (!body.summaryOCR) errors.push('missing summaryOCR');
-    if (!body.documentData) errors.push('missing documentData');
-    return errors;
+    return requireSummaryOCR(body);
   },
   WaterUtilityBillingStatement: (body) => {
-    const errors = [];
-    if (!body.summaryOCR) errors.push('missing summaryOCR');
-    if (!body.documentData) errors.push('missing documentData');
-    return errors;
+    return requireSummaryOCR(body);
   },
   BankStatement: (body) => {
-    const errors = [];
-    if (!body.summaryOCR) errors.push('missing summaryOCR');
-    if (!body.transactionsOCR || !Array.isArray(body.transactionsOCR) || body.transactionsOCR.length === 0) {
-      errors.push('missing or empty transactionsOCR');
-    }
-    if (!body.fraudChecks) errors.push('missing fraudChecks');
+    const errors = requireSummaryOCR(body);
+    if (!Array.isArray(body.transactionsOCR)) errors.push('missing transactionsOCR');
+    if (!body.fraudCheckFindings) errors.push('missing fraudCheckFindings');
     return errors;
   },
   Payslip: (body) => {
-    const errors = [];
-    if (!body.summaryOCR) errors.push('missing summaryOCR');
-    if (!body.documentData) errors.push('missing documentData');
-    const dd = body.documentData || {};
-    if (!dd.gross_pay && !dd.net_pay) errors.push('missing both gross_pay and net_pay');
+    const errors = requireSummaryOCR(body);
+    const ocr = body.summaryOCR?.[0] || {};
+    if (!ocr.gross_pay && !ocr.net_pay) errors.push('missing both gross_pay and net_pay in summaryOCR');
     return errors;
   },
   NBIClearance: (body) => {
-    const errors = [];
-    if (!body.summaryOCR) errors.push('missing summaryOCR');
-    if (!body.documentData) errors.push('missing documentData');
-    return errors;
+    return requireSummaryOCR(body);
   },
   Passport: (body) => {
-    const errors = [];
-    if (!body.summaryOCR) errors.push('missing summaryOCR');
-    if (!body.documentData) errors.push('missing documentData');
-    return errors;
+    return requireSummaryOCR(body);
   },
   DTIRegistrationCertificate: (body) => {
-    const errors = [];
-    if (!body.summaryOCR) errors.push('missing summaryOCR');
-    if (!body.documentData) errors.push('missing documentData');
-    return errors;
+    return requireSummaryOCR(body);
   },
 };
 
