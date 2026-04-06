@@ -130,6 +130,224 @@
         "gs://gcash-test-data-staging/DTI/DTI_4.jpeg",
         "gs://gcash-test-data-staging/DTI/DTI_5.pdf"
       ]
+    },
+
+    {
+      "id": "FRAUD-ID-001",
+      "documentType": "PhilippineNationalID",
+      "testType": "fraud",
+      "pipeline": {"fraud_detection": true, "use_cache": false},
+      "bucket": "gs://rafi-images-staging/various-ids",
+      "files": [
+        "gs://rafi-images-staging/various-ids/00007-Identification System ID - FIRST LAST (1).jpg",
+        "gs://rafi-images-staging/various-ids/55601_2025-04-15 01_34_53 Identification System ID - GLERIZA PAGUNTALAN BATIQUIN.jpg",
+        "gs://rafi-images-staging/various-ids/55603_2024-12-02 06_31_28 Identification System ID - FIRST LAST.jpg",
+        "gs://rafi-images-staging/various-ids/55606 IMG20250317125605.jpg",
+        "gs://rafi-images-staging/various-ids/55607 IMG20250324100314.jpg"
+      ]
+    },
+    {
+      "id": "FRAUD-DL-001",
+      "documentType": "DriversLicense",
+      "testType": "fraud",
+      "pipeline": {"fraud_detection": true, "use_cache": false},
+      "bucket": "gs://rafi-images-staging/various-ids",
+      "files": [
+        "gs://rafi-images-staging/various-ids/55075_Driver's license_VERTUCIO, ADONIS FRIAS front .jpg",
+        "gs://rafi-images-staging/various-ids/55076_Driver's license_ABAÑO, GILBERT ANTHONY ORCA front .jpeg",
+        "gs://rafi-images-staging/various-ids/56055_Driver license_front.jpeg",
+        "gs://rafi-images-staging/various-ids/55055_Driver license_front.jpeg",
+        "gs://rafi-images-staging/various-ids/56054_2025-05-20 03_24_29 Passport - KRISTY undefined GOLEZ.jpg"
+      ]
+    },
+    {
+      "id": "FRAUD-PS-001",
+      "documentType": "Payslip",
+      "testType": "fraud",
+      "pipeline": {"fraud_detection": true, "use_cache": false},
+      "bucket": "gs://gcash-test-data-staging/payslips",
+      "files": [
+        "gs://gcash-test-data-staging/payslips/PS-006.pdf",
+        "gs://gcash-test-data-staging/payslips/PS-007.pdf",
+        "gs://gcash-test-data-staging/payslips/PS-008.pdf"
+      ]
+    },
+    {
+      "id": "FRAUD-BIR-001",
+      "documentType": "BIRForm2303",
+      "testType": "fraud",
+      "pipeline": {"fraud_detection": true, "use_cache": false},
+      "bucket": "gs://rafi-images-staging/bir2303",
+      "files": [
+        "gs://rafi-images-staging/bir2303/2024_11_23_bir_registration_certificate_form_2303.jpeg",
+        "gs://rafi-images-staging/bir2303/2024_11_25_bir_registration_certificate_form_2303.jpeg",
+        "gs://rafi-images-staging/bir2303/2024_11_28_bir_registration_certificate_form_2303(1).jpeg"
+      ]
+    },
+    {
+      "id": "FRAUD-ELEC-001",
+      "documentType": "ElectricUtilityBillingStatement",
+      "testType": "fraud",
+      "pipeline": {"fraud_detection": true, "use_cache": false},
+      "bucket": "gs://rafi-images-staging/electricity-bills",
+      "files": [
+        "gs://rafi-images-staging/electricity-bills/55573_MERALCO_BILL_V7.jpg",
+        "gs://rafi-images-staging/electricity-bills/55575_MERALCO_BILL_0017.jpg",
+        "gs://rafi-images-staging/electricity-bills/55577_MERALCO_BILL_V7.jpg"
+      ]
+    },
+
+    {
+      "id": "BS-DEEP-001",
+      "documentType": "BankStatement",
+      "testType": "bank-deep",
+      "bucket": "gs://gcash-test-data-staging/bank_statements",
+      "files": [
+        "gs://gcash-test-data-staging/bank_statements/BPI.pdf",
+        "gs://gcash-test-data-staging/bank_statements/SBC_ESOA_SEPT_2024.pdf",
+        "gs://gcash-test-data-staging/bank_statements/Tonik_Consolidated.pdf"
+      ]
+    },
+
+    {
+      "id": "BLS-001",
+      "documentType": "bls",
+      "testType": "bls",
+      "bucket": "",
+      "files": [],
+      "endpoints": [
+        "/api/v1/applications/",
+        "/api/v1/applications/upload-urls"
+      ]
+    },
+
+    {
+      "id": "CACHE-001",
+      "documentType": "BankStatement",
+      "testType": "cache",
+      "pipeline": {"use_cache": true},
+      "bucket": "gs://gcash-test-data-staging/bank_statements",
+      "files": [
+        "gs://gcash-test-data-staging/bank_statements/BS-004.png"
+      ]
+    },
+
+    {
+      "id": "SEC-001",
+      "documentType": "BankStatement",
+      "testType": "security",
+      "bucket": "gs://gcash-test-data-staging/bank_statements",
+      "files": [
+        "gs://gcash-test-data-staging/bank_statements/BS-005.png"
+      ]
+    },
+
+    {
+      "id": "CROSS-001",
+      "documentType": "crosscheck",
+      "testType": "crosscheck",
+      "bucket": "gs://gcash-test-data-staging",
+      "notes": "Uses PS-001 + BS-001 data for cross-document validation",
+      "files": [
+        "gs://gcash-test-data-staging/payslips/PS-001.png",
+        "gs://gcash-test-data-staging/bank_statements/BS-001.png"
+      ]
+    },
+
+    {
+      "id": "PS-DEEP-001",
+      "documentType": "Payslip",
+      "testType": "payslip-deep",
+      "bucket": "gs://gcash-test-data-staging/payslips",
+      "files": [
+        "gs://gcash-test-data-staging/payslips/PS-001.png",
+        "gs://gcash-test-data-staging/payslips/PS-003.png",
+        "gs://gcash-test-data-staging/payslips/PS-005.png"
+      ]
+    },
+
+    {
+      "id": "COMP-001",
+      "documentType": "BankStatement",
+      "testType": "completeness",
+      "bucket": "gs://gcash-test-data-staging/bank_statements",
+      "files": ["gs://gcash-test-data-staging/bank_statements/BS-001.png"]
+    },
+    {
+      "id": "COMP-002",
+      "documentType": "Payslip",
+      "testType": "completeness",
+      "bucket": "gs://gcash-test-data-staging/payslips",
+      "files": ["gs://gcash-test-data-staging/payslips/PS-001.png"]
+    },
+    {
+      "id": "COMP-003",
+      "documentType": "PhilippineNationalID",
+      "testType": "completeness",
+      "bucket": "gs://rafi-images-staging/various-ids",
+      "files": ["gs://rafi-images-staging/various-ids/55640_National ID-V2.png"]
+    },
+
+    {
+      "id": "COST-001",
+      "documentType": "cost-tracking",
+      "testType": "cost-tracking",
+      "bucket": "",
+      "files": [],
+      "endpoints": [
+        "/monitoring/api/v1/costs/overview",
+        "/monitoring/api/v1/costs/by-tenant",
+        "/monitoring/api/v1/costs/by-document-type",
+        "/monitoring/api/v1/costs/by-model",
+        "/monitoring/api/v1/costs/timeseries"
+      ]
+    },
+
+    {
+      "id": "HEALTH-001",
+      "documentType": "health",
+      "testType": "health",
+      "bucket": "",
+      "files": [],
+      "endpoints": [
+        "/health/startup",
+        "/health/live",
+        "/health/ready",
+        "/health/detailed",
+        "/ai-gateway/health/gateway-circuit-breakers"
+      ]
+    },
+
+    {
+      "id": "GCASH-BS-001",
+      "documentType": "BankStatement",
+      "testType": "gcash-computed",
+      "bucket": "gs://gcash-test-data-staging/bank_statements",
+      "files": [
+        "gs://gcash-test-data-staging/bank_statements/BPI.pdf",
+        "gs://gcash-test-data-staging/bank_statements/SBC_ESOA_SEPT_2024.pdf"
+      ]
+    },
+    {
+      "id": "GCASH-ELEC-001",
+      "documentType": "ElectricUtilityBillingStatement",
+      "testType": "gcash-computed",
+      "bucket": "gs://gcash-test-data-staging/electricity-bills",
+      "files": [
+        "gs://gcash-test-data-staging/electricity-bills/55557_MERALCO_BILL_005.jpeg",
+        "gs://gcash-test-data-staging/electricity-bills/55577_MERALCO_BILL_V7.jpg"
+      ]
+    },
+
+    {
+      "id": "DEDUP-001",
+      "documentType": "BankStatement",
+      "testType": "dedup",
+      "bucket": "gs://gcash-test-data-staging/bank_statements",
+      "notes": "Same file submitted 3x with different documentIds",
+      "files": [
+        "gs://gcash-test-data-staging/bank_statements/BS-001.png"
+      ]
     }
   ]
 }
