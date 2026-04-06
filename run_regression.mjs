@@ -181,6 +181,7 @@ async function runBatchUpload(fixture) {
   const gatewayDocType = GATEWAY_DOCTYPE_MAP[fixture.documentType] || fixture.documentType;
   const documents = fixture.files.map(file => ({
     documentId: randomUUID(),
+    fileId: randomUUID(),
     preSignedUrl: file,
     documentType: gatewayDocType,
     classification: 'PRIMARY',
