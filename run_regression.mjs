@@ -4,7 +4,7 @@
  * and sends each to the VerifyIQ staging API.
  *
  * Single-doc fixtures -> POST /v1/documents/parse
- * Batch fixtures      -> POST /ai-gateway/batch-upload
+ * Batch fixtures      -> POST /ai-gateway/batch-upload (with webhook callback polling)
  *
  * Results are posted to ClickUp.
  */
@@ -48,6 +48,9 @@ const VERIFYIQ_KEY = process.env.VERIFYIQ_API_KEY;
 const GOOGLE_SA_KEY_FILE = process.env.GOOGLE_SA_KEY_FILE;
 const CLICKUP_TOKEN = process.env.CLICKUP_API_TOKEN;
 const CLICKUP_FOLDER_ID = process.env.CLICKUP_FOLDER_ID || '90147709410';
+const WEBHOOK_SERVER_URL = (process.env.WEBHOOK_SERVER_URL || '').trim().replace(/\/$/, '');
+const DECRYPT_URL = process.env.DECRYPT_URL || 'https://us-central1-boost-capital-staging.cloudfunctions.net/verifyiq-gateway/utils/decrypt';
+let WEBHOOK_TOKEN_ID = null;
 
 // -- CLI args -----------------------------------------------------------------
 
@@ -64,7 +67,7 @@ if (missing.length) {
   process.exit(1);
 }
 
-// -- IAP token generation -----------------------------------------------------
+// -- IAP token generation (for staging API) -----------------------------------
 
 let _iapToken = null;
 let _iapTokenExp = 0;
@@ -90,6 +93,138 @@ function getIapToken() {
   _iapTokenExp = exp;
   console.log(`  IAP token generated (aud=${STAGING_URL}, ${_iapToken.length} chars)`);
   return _iapToken;
+}
+
+// -- Webhook server IAP auth --------------------------------------------------
+
+let _webhookIapToken = null;
+
+function getWebhookIapToken() {
+  if (_webhookIapToken) return _webhookIapToken;
+  if (!GOOGLE_SA_KEY_FILE) throw new Error('GOOGLE_SA_KEY_FILE is required for webhook server auth');
+  const sa = JSON.parse(readFileSync(GOOGLE_SA_KEY_FILE, 'utf8'));
+  const now = Math.floor(Date.now() / 1000);
+  _webhookIapToken = jwt.sign(
+    {
+      iss: sa.client_email,
+      sub: sa.client_email,
+      aud: WEBHOOK_SERVER_URL,
+      iat: now,
+      exp: now + 3600,
+    },
+    sa.private_key,
+    { algorithm: 'RS256', keyid: sa.private_key_id },
+  );
+  console.log(`  Webhook IAP token generated (${_webhookIapToken.length} chars)`);
+  return _webhookIapToken;
+}
+
+// -- Webhook token lifecycle --------------------------------------------------
+
+async function createWebhookToken() {
+  console.log('-> Creating fresh webhook token...');
+  const res = await axios.post(`${WEBHOOK_SERVER_URL}/token`, null, {
+    headers: { Authorization: `Bearer ${getWebhookIapToken()}` },
+    validateStatus: () => true,
+  });
+  if (res.status !== 201 && res.status !== 200) {
+    throw new Error(`Webhook token creation failed: HTTP ${res.status} -- ${JSON.stringify(res.data).slice(0, 300)}`);
+  }
+  const uuid = res.data?.uuid;
+  if (!uuid) throw new Error('Webhook server returned no uuid');
+  console.log(`  Webhook token created: ${uuid}`);
+  return uuid;
+}
+
+async function deleteWebhookToken(uuid) {
+  if (!uuid) return;
+  console.log(`-> Deleting webhook token ${uuid}...`);
+  try {
+    await axios.delete(`${WEBHOOK_SERVER_URL}/token/${uuid}`, {
+      headers: { Authorization: `Bearer ${getWebhookIapToken()}` },
+      validateStatus: () => true,
+    });
+    console.log('  Webhook token deleted');
+  } catch (err) {
+    console.warn(`  Could not delete webhook token: ${err.message}`);
+  }
+}
+
+// -- Webhook polling & decryption ---------------------------------------------
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function getWebhookBaseline() {
+  const res = await axios.get(
+    `${WEBHOOK_SERVER_URL}/token/${WEBHOOK_TOKEN_ID}/requests?per_page=50`,
+    { headers: { Authorization: `Bearer ${getWebhookIapToken()}` }, validateStatus: () => true }
+  );
+  return res.data?.data?.length ?? 0;
+}
+
+async function pollWebhookCallbacks(baselineCount, expectedCount, applicationId, timeoutMs = 90_000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    await sleep(3_000);
+    const res = await axios.get(
+      `${WEBHOOK_SERVER_URL}/token/${WEBHOOK_TOKEN_ID}/requests?per_page=50`,
+      { headers: { Authorization: `Bearer ${getWebhookIapToken()}` }, validateStatus: () => true }
+    );
+    const all = res.data?.data ?? [];
+    const newRequests = all.slice(0, all.length - baselineCount);
+    if (newRequests.length >= expectedCount) return newRequests;
+    console.log(`    Polling... ${newRequests.length}/${expectedCount} callbacks received`);
+  }
+  throw new Error(`Timed out after ${timeoutMs / 1000}s waiting for ${expectedCount} callbacks`);
+}
+
+async function decryptCallback(rawBody) {
+  const res = await axios.post(DECRYPT_URL, rawBody, {
+    headers: {
+      Authorization: `Bearer ${getIapToken()}`,
+      'Content-Type': 'text/plain',
+    },
+    validateStatus: () => true,
+  });
+  if (res.status !== 200) {
+    throw new Error(`Decrypt returned HTTP ${res.status}: ${JSON.stringify(res.data).slice(0, 300)}`);
+  }
+  return typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
+}
+
+// -- Callback validation ------------------------------------------------------
+
+function resolvePath(obj, dotPath) {
+  const keys = dotPath.split('.');
+  let current = obj;
+  for (const key of keys) {
+    if (current == null) throw new Error(`null at "${key}"`);
+    current = Array.isArray(current) ? current[Number(key)] : current[key];
+  }
+  return current;
+}
+
+function assertField(obj, path, label) {
+  try {
+    const val = resolvePath(obj, path);
+    if (val == null) return `${label}: ${path} is null`;
+    return null;
+  } catch {
+    return `${label}: ${path} not found`;
+  }
+}
+
+function validateDocumentCallback(decrypted) {
+  const coreFields = [
+    'applicationId', 'submissionId', 'documentId', 'publicUserId',
+    'status', 'documentType', 'documentClassification',
+  ];
+  return coreFields.map(f => assertField(decrypted, f, 'doc-callback')).filter(Boolean);
+}
+
+function validateApplicationCallback(decrypted) {
+  const topFields = ['applicationId', 'submissionId', 'publicUserId', 'status'];
+  return topFields.map(f => assertField(decrypted, f, 'app-callback')).filter(Boolean);
 }
 
 // -- Axios clients ------------------------------------------------------------
@@ -175,9 +310,18 @@ async function runSingleParse(fixture, file) {
   };
 }
 
-// -- Batch upload -------------------------------------------------------------
+// -- Batch upload with webhook callback polling --------------------------------
 
 async function runBatchUpload(fixture) {
+  if (!WEBHOOK_TOKEN_ID) {
+    return {
+      status: 0,
+      passed: false,
+      body: null,
+      summary: 'SKIPPED -- WEBHOOK_SERVER_URL not set or webhook token unavailable',
+    };
+  }
+
   const gatewayDocType = GATEWAY_DOCTYPE_MAP[fixture.documentType] || fixture.documentType;
   const documents = fixture.files.map(file => ({
     documentId: randomUUID(),
@@ -188,24 +332,113 @@ async function runBatchUpload(fixture) {
     preSignedUrl: file,
   }));
 
+  const webhookIapHeader = { Authorization: `Bearer ${getWebhookIapToken()}` };
   const payload = {
     payload: {
       publicUserId: `regression-${fixture.id}-${Date.now()}`,
       submissionId: randomUUID(),
       documents,
     },
+    callbacks: {
+      documentResult: {
+        url: `${WEBHOOK_SERVER_URL}/${WEBHOOK_TOKEN_ID}`,
+        method: 'POST',
+        headers: webhookIapHeader,
+      },
+      applicationResult: {
+        url: `${WEBHOOK_SERVER_URL}/${WEBHOOK_TOKEN_ID}`,
+        method: 'POST',
+        headers: webhookIapHeader,
+      },
+    },
   };
 
+  // 1. Get baseline webhook count
+  let baselineCount;
+  try {
+    baselineCount = await getWebhookBaseline();
+    console.log(`    Webhook baseline: ${baselineCount} existing requests`);
+  } catch (err) {
+    return { status: 0, passed: false, body: null, summary: `Webhook baseline failed: ${err.message}` };
+  }
+
+  // 2. POST to batch-upload
   const client = createStagingClient(true);
-  const res = await client.post('/ai-gateway/batch-upload', payload);
+  let status, body;
+  try {
+    const res = await client.post('/ai-gateway/batch-upload', payload);
+    status = res.status;
+    body = res.data;
+  } catch (err) {
+    return { status: 0, passed: false, body: null, summary: `POST error: ${err.message}` };
+  }
+
+  console.log(`    POST response: HTTP ${status}`);
+
+  if (status !== 200) {
+    return {
+      status,
+      passed: false,
+      body,
+      summary: `HTTP ${status} -- ${JSON.stringify(body).slice(0, 200)}`,
+    };
+  }
+
+  if (!body.applicationId) {
+    return { status, passed: false, body, summary: 'Missing applicationId in response' };
+  }
+  console.log(`    HTTP 200, applicationId=${body.applicationId}, status=${body.status}`);
+
+  // 3. Poll for webhook callbacks (N doc callbacks + 1 app callback)
+  const docCount = documents.length;
+  const expectedCallbacks = docCount + 1;
+  let callbacks;
+  try {
+    console.log(`    Waiting for ${expectedCallbacks} callbacks (${docCount} doc + 1 app)...`);
+    callbacks = await pollWebhookCallbacks(baselineCount, expectedCallbacks, body.applicationId);
+    console.log(`    Received ${callbacks.length} callbacks`);
+  } catch (err) {
+    return { status, passed: false, body, summary: `Polling: ${err.message}` };
+  }
+
+  // 4. Decrypt and validate each callback
+  const allErrors = [];
+  for (const cb of callbacks) {
+    const rawBody = cb.content ?? cb.body ?? JSON.stringify(cb);
+    let decrypted;
+    try {
+      decrypted = await decryptCallback(rawBody);
+    } catch (err) {
+      allErrors.push(`Decrypt failed: ${err.message}`);
+      continue;
+    }
+
+    const isDocLevel = !!decrypted.documentId;
+    if (isDocLevel) {
+      const docErrors = validateDocumentCallback(decrypted);
+      if (docErrors.length) allErrors.push(...docErrors);
+      else console.log(`    Document callback OK (docId=${decrypted.documentId})`);
+    } else {
+      const appErrors = validateApplicationCallback(decrypted);
+      if (appErrors.length) allErrors.push(...appErrors);
+      else console.log(`    Application callback OK (appId=${decrypted.applicationId})`);
+    }
+  }
+
+  if (allErrors.length) {
+    return {
+      status,
+      passed: false,
+      body,
+      summary: `Callback validation: ${allErrors.length} error(s): ${allErrors.join('; ')}`,
+    };
+  }
 
   return {
-    status: res.status,
-    passed: res.status === 200 && !!res.data?.applicationId,
-    body: res.data,
-    summary: res.status === 200
-      ? `HTTP 200 -- applicationId=${res.data.applicationId}, status=${res.data.status}`
-      : `HTTP ${res.status} -- ${JSON.stringify(res.data).slice(0, 200)}`,
+    status,
+    passed: true,
+    body,
+    summary: `HTTP 200 ACCEPTED -- ${callbacks.length} callbacks validated`,
   };
 }
 
@@ -284,8 +517,6 @@ async function postClickUpResult(fixture, results) {
 
 // -- Main ---------------------------------------------------------------------
 
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
 async function main() {
   const fixtures = loadFixtures();
 
@@ -301,47 +532,59 @@ async function main() {
   await runHealthCheck();
   await createClickUpList();
 
+  // Create a fresh webhook token for batch tests
+  const batchEnvReady = GOOGLE_SA_KEY_FILE && WEBHOOK_SERVER_URL;
+  if (batchEnvReady) {
+    WEBHOOK_TOKEN_ID = await createWebhookToken();
+  } else {
+    console.warn('  WEBHOOK_SERVER_URL not set -- batch callback validation will be skipped');
+  }
+
   let totalPassed = 0;
   let totalFailed = 0;
 
-  for (const fixture of fixtures) {
-    console.log(`\n-- ${fixture.id} (${fixture.documentType}) -- ${fixture.files.length} file(s) --`);
+  try {
+    for (const fixture of fixtures) {
+      console.log(`\n-- ${fixture.id} (${fixture.documentType}) -- ${fixture.files.length} file(s) --`);
 
-    const results = [];
+      const results = [];
 
-    // Run each file individually via /v1/documents/parse
-    for (const file of fixture.files) {
-      const fileName = file.split('/').pop();
-      console.log(`  -> ${fileName}`);
-      try {
-        const result = await runSingleParse(fixture, file);
-        results.push(result);
-        console.log(`    ${result.passed ? 'PASS' : 'FAIL'} ${result.summary}`);
-      } catch (err) {
-        results.push({ file, status: 0, passed: false, body: null, summary: `Error: ${err.message}` });
-        console.log(`    FAIL Error: ${err.message}`);
+      // Run each file individually via /v1/documents/parse
+      for (const file of fixture.files) {
+        const fileName = file.split('/').pop();
+        console.log(`  -> ${fileName}`);
+        try {
+          const result = await runSingleParse(fixture, file);
+          results.push(result);
+          console.log(`    ${result.passed ? 'PASS' : 'FAIL'} ${result.summary}`);
+        } catch (err) {
+          results.push({ file, status: 0, passed: false, body: null, summary: `Error: ${err.message}` });
+          console.log(`    FAIL Error: ${err.message}`);
+        }
+        // Delay between requests to stay under 30/min rate limit
+        await sleep(2500);
       }
-      // Delay between requests to stay under 30/min rate limit
-      await sleep(2500);
+
+      // Also run as batch via /ai-gateway/batch-upload
+      console.log(`  -> Batch upload (${fixture.files.length} docs)...`);
+      try {
+        const batchResult = await runBatchUpload(fixture);
+        results.push({ ...batchResult, file: null });
+        console.log(`    ${batchResult.passed ? 'PASS' : 'FAIL'} ${batchResult.summary}`);
+      } catch (err) {
+        results.push({ file: null, status: 0, passed: false, body: null, summary: `Batch error: ${err.message}` });
+        console.log(`    FAIL Batch error: ${err.message}`);
+      }
+
+      const passed = results.filter(r => r.passed).length;
+      const failed = results.length - passed;
+      totalPassed += passed;
+      totalFailed += failed;
+
+      await postClickUpResult(fixture, results);
     }
-
-    // Also run as batch via /ai-gateway/batch-upload
-    console.log(`  -> Batch upload (${fixture.files.length} docs)...`);
-    try {
-      const batchResult = await runBatchUpload(fixture);
-      results.push({ ...batchResult, file: null });
-      console.log(`    ${batchResult.passed ? 'PASS' : 'FAIL'} ${batchResult.summary}`);
-    } catch (err) {
-      results.push({ file: null, status: 0, passed: false, body: null, summary: `Batch error: ${err.message}` });
-      console.log(`    FAIL Batch error: ${err.message}`);
-    }
-
-    const passed = results.filter(r => r.passed).length;
-    const failed = results.length - passed;
-    totalPassed += passed;
-    totalFailed += failed;
-
-    await postClickUpResult(fixture, results);
+  } finally {
+    await deleteWebhookToken(WEBHOOK_TOKEN_ID);
   }
 
   console.log(`\n-> Done. ${totalPassed} passed, ${totalFailed} failed out of ${totalPassed + totalFailed} total.`);
