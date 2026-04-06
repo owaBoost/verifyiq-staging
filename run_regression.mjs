@@ -896,7 +896,7 @@ async function postClickUpResult(fixture, results) {
   const passedCount = results.filter(r => r.passed).length;
   const totalCount = results.length;
   const icon = passedCount === totalCount ? 'PASS' : passedCount > 0 ? 'PARTIAL' : 'FAIL';
-  const status = passedCount === totalCount ? 'passed' : 'fail';
+  const status = passedCount === totalCount ? 'complete' : 'in progress';
 
   const lines = results.map(r => {
     const rIcon = r.passed ? 'PASS' : 'FAIL';
@@ -924,7 +924,7 @@ async function postClickUpResult(fixture, results) {
       });
     } else {
       const { data } = await clickup.post(`/list/${CLICKUP_LIST_ID}/task`, {
-        name: taskName, description, tags: ['regression', fixture.testType || 'default'], status,
+        name: taskName, description, status,
       });
       existingTasks[taskName] = data.id;
       console.log(`  ClickUp created: ${data.url}`);
