@@ -2,9 +2,6 @@
   "description": "VerifyIQ staging regression suite — all fixtures use gs://verifyiq-internal-testing/QA/ as the canonical test data bucket",
   "staging_url": "https://ai-boostform-api-1019050071398.us-central1.run.app",
   "fixtures": [
-
-    {"_section": "===== BANK / FINANCIAL ====="},
-
     {
       "id": "BS-BDO-001",
       "documentType": "BankStatement",
@@ -159,9 +156,7 @@
       ]
     },
 
-    {"_section": "===== EMPLOYMENT ====="},
-
-    {
+{
       "id": "PS-001",
       "documentType": "Payslip",
       "testType": "default",
@@ -223,9 +218,7 @@
       ]
     },
 
-    {"_section": "===== IDENTITY / KYC ====="},
-
-    {
+{
       "id": "PHILID-001",
       "documentType": "PhilippineNationalID",
       "testType": "default",
@@ -379,9 +372,7 @@
       ]
     },
 
-    {"_section": "===== UTILITY BILLS ====="},
-
-    {
+{
       "id": "ELEC-001",
       "documentType": "ElectricUtilityBillingStatement",
       "testType": "default",
@@ -410,9 +401,7 @@
       ]
     },
 
-    {"_section": "===== KYB ====="},
-
-    {
+{
       "id": "BIR-001",
       "documentType": "BIRForm2303",
       "testType": "default",
@@ -441,9 +430,7 @@
       ]
     },
 
-    {"_section": "===== INFRASTRUCTURE / INTEGRATION (kept from original) ====="},
-
-    {
+{
       "id": "HEALTH-001",
       "documentType": "health",
       "testType": "health",
