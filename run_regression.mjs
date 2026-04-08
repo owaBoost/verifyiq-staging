@@ -56,40 +56,216 @@ const GATEWAY_DOCTYPE_MAP = {
 };
 
 // -- Per-doctype response field validation ------------------------------------
+// Validators return { errors: [...], warnings: [...] }
+// errors = hard fails (summaryOCR missing, wrong docType)
+// warnings = soft checks (specific field names may vary per bank/issuer)
 
 function requireSummaryOCR(body) {
-  if (!Array.isArray(body.summaryOCR) || body.summaryOCR.length === 0) return ['missing or empty summaryOCR'];
-  return [];
+  if (!Array.isArray(body.summaryOCR) || body.summaryOCR.length === 0) return { errors: ['missing or empty summaryOCR'], warnings: [] };
+  return { errors: [], warnings: [] };
+}
+
+function softCheck(ocr, fieldA, fieldB, label) {
+  if (ocr[fieldA] || ocr[fieldB]) return null;
+  return `WARN: missing ${label} (checked ${fieldA}${fieldB ? ', ' + fieldB : ''})`;
 }
 
 const RESPONSE_VALIDATORS = {
-  BIRForm2303: (body) => requireSummaryOCR(body),
-  ElectricUtilityBillingStatement: (body) => {
-    const errors = requireSummaryOCR(body);
-    const ocr = body.summaryOCR?.[0] || {};
-    if (!ocr.billing_period && !ocr.bill_period_start) errors.push('missing billing_period in summaryOCR');
-    const gs = body.gshare_fields || {};
-    if (!gs.gs_amountdue_elecbill) errors.push('missing gs_amountdue_elecbill in gshare_fields');
-    return errors;
+  BIRForm2303: (body) => {
+    const r = requireSummaryOCR(body); if (r.errors.length) return r;
+    const ocr = body.summaryOCR[0] || {};
+    const w = softCheck(ocr, 'tin_number', 'registration_number', 'TIN/registration number');
+    if (w) r.warnings.push(w);
+    return r;
   },
-  PhilippineNationalID: (body) => requireSummaryOCR(body),
-  DriversLicense: (body) => requireSummaryOCR(body),
+  ElectricUtilityBillingStatement: (body) => {
+    const r = requireSummaryOCR(body); if (r.errors.length) return r;
+    const ocr = body.summaryOCR[0] || {};
+    if (!ocr.billing_period && !ocr.bill_period_start) r.warnings.push('WARN: missing billing_period in summaryOCR');
+    const gs = body.gshare_fields || {};
+    if (!gs.gs_amountdue_elecbill) r.warnings.push('WARN: missing gs_amountdue_elecbill in gshare_fields');
+    const w1 = softCheck(ocr, 'account_number', null, 'account_number');
+    if (w1) r.warnings.push(w1);
+    const w2 = softCheck(ocr, 'account_name', 'customer_name', 'account/customer name');
+    if (w2) r.warnings.push(w2);
+    return r;
+  },
+  PhilippineNationalID: (body) => {
+    const r = requireSummaryOCR(body); if (r.errors.length) return r;
+    const ocr = body.summaryOCR[0] || {};
+    const w1 = softCheck(ocr, 'id_number', 'pcn', 'ID number/PCN');
+    if (w1) r.warnings.push(w1);
+    const w2 = softCheck(ocr, 'full_name', 'last_name', 'name');
+    if (w2) r.warnings.push(w2);
+    return r;
+  },
+  DriversLicense: (body) => {
+    const r = requireSummaryOCR(body); if (r.errors.length) return r;
+    const ocr = body.summaryOCR[0] || {};
+    const w1 = softCheck(ocr, 'license_number', null, 'license_number');
+    if (w1) r.warnings.push(w1);
+    const w2 = softCheck(ocr, 'full_name', 'last_name', 'name');
+    if (w2) r.warnings.push(w2);
+    return r;
+  },
   WaterUtilityBillingStatement: (body) => requireSummaryOCR(body),
   BankStatement: (body) => {
-    const errors = requireSummaryOCR(body);
-    if (!Array.isArray(body.transactionsOCR)) errors.push('missing transactionsOCR');
-    if (!body.fraudCheckFindings) errors.push('missing fraudCheckFindings');
-    return errors;
+    const r = requireSummaryOCR(body); if (r.errors.length) return r;
+    if (!Array.isArray(body.transactionsOCR)) r.errors.push('missing transactionsOCR');
+    else if (body.transactionsOCR.length === 0) r.warnings.push('WARN: transactionsOCR is empty array');
+    if (!body.fraudCheckFindings) r.warnings.push('WARN: missing fraudCheckFindings');
+    const ocr = body.summaryOCR[0] || {};
+    const w1 = softCheck(ocr, 'account_holder_name', 'account_name', 'account holder name');
+    if (w1) r.warnings.push(w1);
+    const w2 = softCheck(ocr, 'account_number', null, 'account_number');
+    if (w2) r.warnings.push(w2);
+    return r;
   },
   Payslip: (body) => {
-    const errors = requireSummaryOCR(body);
-    const ocr = body.summaryOCR?.[0] || {};
-    if (!ocr.gross_pay && !ocr.net_pay) errors.push('missing both gross_pay and net_pay in summaryOCR');
-    return errors;
+    const r = requireSummaryOCR(body); if (r.errors.length) return r;
+    const ocr = body.summaryOCR[0] || {};
+    if (!ocr.gross_pay && !ocr.net_pay) r.errors.push('missing both gross_pay and net_pay in summaryOCR');
+    const w1 = softCheck(ocr, 'employer_name', 'company_name', 'employer/company name');
+    if (w1) r.warnings.push(w1);
+    const w2 = softCheck(ocr, 'net_pay_amount', 'net_pay', 'net pay as number');
+    if (w2) r.warnings.push(w2);
+    return r;
   },
-  NBIClearance: (body) => requireSummaryOCR(body),
-  Passport: (body) => requireSummaryOCR(body),
-  DTIRegistrationCertificate: (body) => requireSummaryOCR(body),
+  NBIClearance: (body) => {
+    const r = requireSummaryOCR(body); if (r.errors.length) return r;
+    const ocr = body.summaryOCR[0] || {};
+    const w1 = softCheck(ocr, 'full_name', 'last_name', 'name');
+    if (w1) r.warnings.push(w1);
+    const w2 = softCheck(ocr, 'clearance_number', 'control_number', 'clearance/control number');
+    if (w2) r.warnings.push(w2);
+    return r;
+  },
+  Passport: (body) => {
+    const r = requireSummaryOCR(body); if (r.errors.length) return r;
+    const ocr = body.summaryOCR[0] || {};
+    const w1 = softCheck(ocr, 'passport_number', null, 'passport_number');
+    if (w1) r.warnings.push(w1);
+    const w2 = softCheck(ocr, 'full_name', 'last_name', 'name');
+    if (w2) r.warnings.push(w2);
+    return r;
+  },
+  DTIRegistrationCertificate: (body) => {
+    const r = requireSummaryOCR(body); if (r.errors.length) return r;
+    const ocr = body.summaryOCR[0] || {};
+    const w1 = softCheck(ocr, 'business_name', null, 'business_name');
+    if (w1) r.warnings.push(w1);
+    const w2 = softCheck(ocr, 'registration_number', 'dti_number', 'registration/DTI number');
+    if (w2) r.warnings.push(w2);
+    return r;
+  },
+  GcashTransactionHistory: (body) => {
+    const hasSummary = Array.isArray(body.summaryOCR) && body.summaryOCR.length > 0;
+    const hasTxns = Array.isArray(body.transactionsOCR) && body.transactionsOCR.length > 0;
+    const errors = [];
+    const warnings = [];
+    if (!hasSummary && !hasTxns) errors.push('missing both summaryOCR and transactionsOCR');
+    if (body.documentType !== 'GcashTransactionHistory') warnings.push(`WARN: documentType="${body.documentType}", expected GcashTransactionHistory`);
+    return { errors, warnings };
+  },
+  CreditCardStatement: (body) => {
+    const r = requireSummaryOCR(body); if (r.errors.length) return r;
+    const ocr = body.summaryOCR[0] || {};
+    const w1 = softCheck(ocr, 'account_number', 'card_number', 'account/card number');
+    if (w1) r.warnings.push(w1);
+    const w2 = softCheck(ocr, 'total_amount_due', 'minimum_amount_due', 'amount due');
+    if (w2) r.warnings.push(w2);
+    return r;
+  },
+  CertificateOfEmployment: (body) => {
+    const r = requireSummaryOCR(body); if (r.errors.length) return r;
+    const ocr = body.summaryOCR[0] || {};
+    const w1 = softCheck(ocr, 'employee_name', 'full_name', 'employee name');
+    if (w1) r.warnings.push(w1);
+    const w2 = softCheck(ocr, 'employer_name', 'company_name', 'employer/company name');
+    if (w2) r.warnings.push(w2);
+    return r;
+  },
+  PLDTTelcoBill: (body) => {
+    const r = requireSummaryOCR(body); if (r.errors.length) return r;
+    const ocr = body.summaryOCR[0] || {};
+    const w1 = softCheck(ocr, 'account_number', null, 'account_number');
+    if (w1) r.warnings.push(w1);
+    const w2 = softCheck(ocr, 'amount_due', 'total_amount_due', 'amount due');
+    if (w2) r.warnings.push(w2);
+    return r;
+  },
+  UMID: (body) => {
+    const r = requireSummaryOCR(body); if (r.errors.length) return r;
+    const ocr = body.summaryOCR[0] || {};
+    const w1 = softCheck(ocr, 'id_number', 'crn', 'ID number/CRN');
+    if (w1) r.warnings.push(w1);
+    const w2 = softCheck(ocr, 'full_name', 'last_name', 'name');
+    if (w2) r.warnings.push(w2);
+    return r;
+  },
+  SSSID: (body) => {
+    const r = requireSummaryOCR(body); if (r.errors.length) return r;
+    const ocr = body.summaryOCR[0] || {};
+    const w1 = softCheck(ocr, 'sss_number', 'id_number', 'SSS/ID number');
+    if (w1) r.warnings.push(w1);
+    const w2 = softCheck(ocr, 'full_name', 'last_name', 'name');
+    if (w2) r.warnings.push(w2);
+    return r;
+  },
+  PhilHealthID: (body) => {
+    const r = requireSummaryOCR(body); if (r.errors.length) return r;
+    const ocr = body.summaryOCR[0] || {};
+    const w1 = softCheck(ocr, 'philhealth_number', 'id_number', 'PhilHealth/ID number');
+    if (w1) r.warnings.push(w1);
+    const w2 = softCheck(ocr, 'full_name', 'last_name', 'name');
+    if (w2) r.warnings.push(w2);
+    return r;
+  },
+  PRCID: (body) => {
+    const r = requireSummaryOCR(body); if (r.errors.length) return r;
+    const ocr = body.summaryOCR[0] || {};
+    const w1 = softCheck(ocr, 'license_number', 'prc_number', 'license/PRC number');
+    if (w1) r.warnings.push(w1);
+    const w2 = softCheck(ocr, 'full_name', 'last_name', 'name');
+    if (w2) r.warnings.push(w2);
+    return r;
+  },
+  ACRICard: (body) => {
+    const r = requireSummaryOCR(body); if (r.errors.length) return r;
+    const ocr = body.summaryOCR[0] || {};
+    const w1 = softCheck(ocr, 'acr_number', 'id_number', 'ACR/ID number');
+    if (w1) r.warnings.push(w1);
+    const w2 = softCheck(ocr, 'full_name', 'last_name', 'name');
+    if (w2) r.warnings.push(w2);
+    return r;
+  },
+  HDMFID: (body) => {
+    const r = requireSummaryOCR(body); if (r.errors.length) return r;
+    const ocr = body.summaryOCR[0] || {};
+    const w1 = softCheck(ocr, 'hdmf_number', 'id_number', 'HDMF/ID number');
+    if (w1) r.warnings.push(w1);
+    const w2 = softCheck(ocr, 'full_name', 'last_name', 'name');
+    if (w2) r.warnings.push(w2);
+    return r;
+  },
+  PostalID: (body) => {
+    const r = requireSummaryOCR(body); if (r.errors.length) return r;
+    const ocr = body.summaryOCR[0] || {};
+    const w1 = softCheck(ocr, 'id_number', null, 'id_number');
+    if (w1) r.warnings.push(w1);
+    const w2 = softCheck(ocr, 'full_name', 'last_name', 'name');
+    if (w2) r.warnings.push(w2);
+    return r;
+  },
+  VotersID: (body) => {
+    const r = requireSummaryOCR(body); if (r.errors.length) return r;
+    const ocr = body.summaryOCR[0] || {};
+    const w1 = softCheck(ocr, 'precinct_number', 'id_number', 'precinct/ID number');
+    if (w1) r.warnings.push(w1);
+    const w2 = softCheck(ocr, 'full_name', 'last_name', 'name');
+    if (w2) r.warnings.push(w2);
+    return r;
+  },
 };
 
 // -- Config -------------------------------------------------------------------
@@ -237,17 +413,41 @@ function assertField(obj, path, label) {
   } catch { return `${label}: ${path} not found`; }
 }
 
-function validateDocumentCallback(decrypted) {
+function validateDocumentCallback(decrypted, expectedDocType) {
   const coreFields = [
     'applicationId', 'submissionId', 'documentId', 'publicUserId',
     'status', 'documentType', 'documentClassification',
   ];
-  return coreFields.map(f => assertField(decrypted, f, 'doc-callback')).filter(Boolean);
+  const errors = coreFields.map(f => assertField(decrypted, f, 'doc-callback')).filter(Boolean);
+
+  // Hard fail: status must be COMPLETED
+  if (decrypted.status && decrypted.status !== 'COMPLETED') {
+    errors.push(`doc-callback: status="${decrypted.status}", expected "COMPLETED"`);
+  }
+
+  // Hard fail: documentClassification must be non-empty string
+  if (typeof decrypted.documentClassification !== 'string' || !decrypted.documentClassification.trim()) {
+    errors.push('doc-callback: documentClassification is empty or not a string');
+  }
+
+  // Warn (logged but not a fail): documentType should match expected
+  if (expectedDocType && decrypted.documentType && decrypted.documentType !== expectedDocType) {
+    console.log(`    WARN: callback documentType="${decrypted.documentType}", expected "${expectedDocType}"`);
+  }
+
+  return errors;
 }
 
 function validateApplicationCallback(decrypted) {
   const topFields = ['applicationId', 'submissionId', 'publicUserId', 'status'];
-  return topFields.map(f => assertField(decrypted, f, 'app-callback')).filter(Boolean);
+  const errors = topFields.map(f => assertField(decrypted, f, 'app-callback')).filter(Boolean);
+
+  // Hard fail: application status must be COMPLETED
+  if (decrypted.status && decrypted.status !== 'COMPLETED') {
+    errors.push(`app-callback: status="${decrypted.status}", expected "COMPLETED"`);
+  }
+
+  return errors;
 }
 
 // -- Axios clients ------------------------------------------------------------
@@ -312,14 +512,19 @@ async function runSingleParse(fixture, file, extraPayload = {}) {
   }
 
   const validator = RESPONSE_VALIDATORS[fixture.documentType];
-  const fieldErrors = validator ? validator(res.data) : [];
+  const validation = validator ? validator(res.data) : { errors: [], warnings: [] };
+  // Support old-style validators that return plain array (backwards compat)
+  const fieldErrors = Array.isArray(validation) ? validation : validation.errors || [];
+  const fieldWarnings = Array.isArray(validation) ? [] : validation.warnings || [];
+
   if (fieldErrors.length) {
-    return { file, status: res.status, passed: false, body: res.data, elapsed,
+    return { file, status: res.status, passed: false, body: res.data, elapsed, warnings: fieldWarnings,
       summary: `HTTP 200 but validation failed: ${fieldErrors.join(', ')}` };
   }
 
-  return { file, status: res.status, passed: true, body: res.data, elapsed,
-    summary: `HTTP 200 -- parsed as ${res.data?.documentType ?? fixture.documentType} (${elapsed}ms)` };
+  const warnSuffix = fieldWarnings.length ? ` | ${fieldWarnings.join('; ')}` : '';
+  return { file, status: res.status, passed: true, body: res.data, elapsed, warnings: fieldWarnings,
+    summary: `HTTP 200 -- parsed as ${res.data?.documentType ?? fixture.documentType} (${elapsed}ms)${warnSuffix}` };
 }
 
 // =============================================================================
@@ -865,7 +1070,7 @@ async function runBatchUpload(fixture) {
     catch (err) { allErrors.push(`Decrypt failed: ${err.message}`); continue; }
 
     if (decrypted.documentId) {
-      const docErrors = validateDocumentCallback(decrypted);
+      const docErrors = validateDocumentCallback(decrypted, gatewayDocType);
       if (docErrors.length) allErrors.push(...docErrors);
       else console.log(`    Document callback OK (docId=${decrypted.documentId})`);
     } else {
