@@ -322,7 +322,6 @@
       "testType": "default",
       "description": "NBI Clearance — default parse",
       "files": [
-        "gs://verifyiq-internal-testing/QA/identity_kyc/NBIClearance/NBI_1.jpg",
         "gs://verifyiq-internal-testing/QA/identity_kyc/NBIClearance/NBI_3.png"
       ]
     },
