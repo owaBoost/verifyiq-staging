@@ -94,7 +94,7 @@
     },
     {
       "id": "GCASH-TXN-001",
-      "documentType": "GCashTransactionHistory",
+      "documentType": "GcashTransactionHistory",
       "testType": "default",
       "description": "GCash transaction history — default parse + batch upload",
       "files": [
@@ -109,7 +109,6 @@
       "testType": "default",
       "description": "GCash bank statement files from QA/Gcash — happy path",
       "files": [
-        "gs://verifyiq-internal-testing/QA/Gcash/HP-BS-01_GCash QA.PDF",
         "gs://verifyiq-internal-testing/QA/Gcash/HP-BS-02_GCash QA_Nov.pdf",
         "gs://verifyiq-internal-testing/QA/Gcash/HP-BS-04_GCash_QA.pdf"
       ]
@@ -142,7 +141,7 @@
       "description": "Tonik bank statement — single and multi account",
       "files": [
         "gs://verifyiq-internal-testing/QA/tonik/single tonik.pdf",
-        "gs://verifyiq-internal-testing/QA/tonik/multi tonik.pdf"
+        "gs://verifyiq-internal-testing/QA/tonik/single 2 tonik.pdf"
       ]
     },
     {
@@ -323,7 +322,8 @@
       "testType": "default",
       "description": "NBI Clearance — default parse",
       "files": [
-        "gs://verifyiq-internal-testing/QA/identity_kyc/NBIClearance/NBI_1.jpg"
+        "gs://verifyiq-internal-testing/QA/identity_kyc/NBIClearance/NBI_1.jpg",
+        "gs://verifyiq-internal-testing/QA/identity_kyc/NBIClearance/NBI_3.png"
       ]
     },
     {

@@ -52,7 +52,7 @@ const GATEWAY_DOCTYPE_MAP = {
   DTIRegistrationCertificate: 'DTIRegistrationCertificate',
   CertificateOfEmployment: 'COE',
   CreditCardStatement: 'CREDIT_CARD_STATEMENT',
-  GCashTransactionHistory: 'GCASH_TRANSACTION_HISTORY',
+  GcashTransactionHistory: 'GCASH_TRANSACTION_HISTORY',
 };
 
 // -- Per-doctype response field validation ------------------------------------
