@@ -1,313 +1,453 @@
 {
-  "description": "VerifyIQ staging regression suite — permanent fixture list for nightly/on-demand regression runs",
+  "description": "VerifyIQ staging regression suite — all fixtures use gs://verifyiq-internal-testing/QA/ as the canonical test data bucket",
   "staging_url": "https://ai-boostform-api-1019050071398.us-central1.run.app",
   "fixtures": [
+
+    {"_section": "===== BANK / FINANCIAL ====="},
+
     {
-      "id": "BIR-001",
-      "documentType": "BIRForm2303",
-      "bucket": "gs://rafi-images-staging/bir2303",
-      "files": [
-        "gs://rafi-images-staging/bir2303/2024_10_04_bir_registration_certificate_form_2303.jpeg",
-        "gs://rafi-images-staging/bir2303/2024_11_20_bir_registration_certificate_form_2303.jpeg",
-        "gs://rafi-images-staging/bir2303/2024_11_21_bir_registration_certificate_form_2303 (3).jpg",
-        "gs://rafi-images-staging/bir2303/2024_12_04_bir_registration_certificate_form_2303.pdf",
-        "gs://rafi-images-staging/bir2303/202601_BIR page 1.jpeg"
-      ]
-    },
-    {
-      "id": "ELEC-RAFI-001",
-      "documentType": "ElectricUtilityBillingStatement",
-      "bucket": "gs://rafi-images-staging/electricity-bills",
-      "files": [
-        "gs://rafi-images-staging/electricity-bills/44001_electricity_water_internet_bill.jpeg",
-        "gs://rafi-images-staging/electricity-bills/55557_MERALCO_BILL_005.jpeg",
-        "gs://rafi-images-staging/electricity-bills/55567_Meralco E-bill-V7.png",
-        "gs://rafi-images-staging/electricity-bills/55570_MERALCO_BILL_007.jpg",
-        "gs://rafi-images-staging/electricity-bills/Electric Bill.png"
-      ]
-    },
-    {
-      "id": "ID-001",
-      "documentType": "PhilippineNationalID",
-      "bucket": "gs://rafi-images-staging/various-ids",
-      "files": [
-        "gs://rafi-images-staging/various-ids/00001- Identification System ID - VICTOR CASTAÑEDA CAPITULO (1).jpg",
-        "gs://rafi-images-staging/various-ids/00005-Identification System ID - JENELYN SIMBAJON PROEL-Frontside.jpg",
-        "gs://rafi-images-staging/various-ids/55640_National ID-V2.png",
-        "gs://rafi-images-staging/various-ids/55604 Identification System ID - GENLOH CALUTAN NEPOMUCENO.jpg",
-        "gs://rafi-images-staging/various-ids/55605_2024-11-21 12_07_57 Identification System ID - JOVEN LLOYD CAMACHO CACHILA.jpg"
-      ]
-    },
-    {
-      "id": "ID-002",
-      "documentType": "DriversLicense",
-      "bucket": "gs://rafi-images-staging/various-ids",
-      "files": [
-        "gs://rafi-images-staging/various-ids/55075_Driver's license_VERTUCIO, ADONIS FRIAS front .jpg",
-        "gs://rafi-images-staging/various-ids/55076_Driver's license_ABAÑO, GILBERT ANTHONY ORCA front .jpeg",
-        "gs://rafi-images-staging/various-ids/56055_Driver license_front.jpeg"
-      ]
-    },
-    {
-      "id": "WATER-001",
-      "documentType": "WaterUtilityBillingStatement",
-      "bucket": "gs://rafi-images-staging/water-bills",
-      "files": [
-        "gs://rafi-images-staging/water-bills/45501_water_bill.jpeg",
-        "gs://rafi-images-staging/water-bills/45508_water_bill.jpeg",
-        "gs://rafi-images-staging/water-bills/45509_water_bill.jpg",
-        "gs://rafi-images-staging/water-bills/45510_water_bill.jpg",
-        "gs://rafi-images-staging/water-bills/45511_water_bill.jpg"
-      ]
-    },
-    {
-      "id": "BS-001",
+      "id": "BS-BDO-001",
       "documentType": "BankStatement",
-      "bucket": "gs://gcash-test-data-staging/bank_statements",
+      "testType": "default",
+      "description": "BDO bank statement — default parse + batch upload",
       "files": [
-        "gs://gcash-test-data-staging/bank_statements/BPI.pdf",
-        "gs://gcash-test-data-staging/bank_statements/BS-001.png",
-        "gs://gcash-test-data-staging/bank_statements/BS-002.png",
-        "gs://gcash-test-data-staging/bank_statements/BS-003.png",
-        "gs://gcash-test-data-staging/bank_statements/SBC_ESOA_SEPT_2024.pdf"
+        "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/BDO_BankStatement.png"
       ]
     },
+    {
+      "id": "BS-BPI-001",
+      "documentType": "BankStatement",
+      "testType": "default",
+      "description": "BPI bank statement — default parse + batch upload",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/BPI_eStatement_Dec 2025.pdf"
+      ]
+    },
+    {
+      "id": "BS-GOTYME-001",
+      "documentType": "BankStatement",
+      "testType": "default",
+      "description": "GoTyme bank statement — default parse + batch upload",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/GoTyme_BankStatement_SavingsAccounts_20251103_200827.pdf"
+      ]
+    },
+    {
+      "id": "BS-MAYA-001",
+      "documentType": "BankStatement",
+      "testType": "default",
+      "description": "Maya Savings bank statement — default parse + batch upload",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/MayaSavings_SoA_133f474f6d1a4b22970dcce3e4c827a4_2025NOV.pdf"
+      ]
+    },
+    {
+      "id": "BS-PNB-001",
+      "documentType": "BankStatement",
+      "testType": "default",
+      "description": "PNB bank statement — default parse + batch upload",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/PNB_Bank Statement_10011-4-1764210385856.jpeg"
+      ]
+    },
+    {
+      "id": "BS-UB-001",
+      "documentType": "BankStatement",
+      "testType": "default",
+      "description": "UnionBank bank statement — default parse + batch upload",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/UnionBank-Transactions_2025-11-03_10-19-50.pdf"
+      ]
+    },
+    {
+      "id": "BS-DEEP-BDO-001",
+      "documentType": "BankStatement",
+      "testType": "bank-deep",
+      "description": "BDO bank statement — deep transaction + calculated field validation",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/BDO_BankStatement.png"
+      ]
+    },
+    {
+      "id": "BS-DEEP-BPI-001",
+      "documentType": "BankStatement",
+      "testType": "bank-deep",
+      "description": "BPI bank statement — deep transaction + calculated field validation",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/BPI_eStatement_Dec 2025.pdf"
+      ]
+    },
+    {
+      "id": "BS-DEEP-MAYA-001",
+      "documentType": "BankStatement",
+      "testType": "bank-deep",
+      "description": "Maya bank statement — deep transaction + calculated field validation",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/MayaSavings_SoA_133f474f6d1a4b22970dcce3e4c827a4_2025NOV.pdf"
+      ]
+    },
+    {
+      "id": "CC-BDO-001",
+      "documentType": "CreditCardStatement",
+      "testType": "default",
+      "description": "BDO credit card statement — default parse",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/bank_financial/CreditCardStatement/BDO_CCStatement.pdf"
+      ]
+    },
+    {
+      "id": "GCASH-TXN-001",
+      "documentType": "GCashTransactionHistory",
+      "testType": "default",
+      "description": "GCash transaction history — default parse + batch upload",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/bank_financial/GCashTransactionHistory/GCashTransactionHistory_1_2025-11-11_enc-0909179_1762841447760.pdf",
+        "gs://verifyiq-internal-testing/QA/bank_financial/GCashTransactionHistory/GCash_Statement_2_2026-01-02.pdf",
+        "gs://verifyiq-internal-testing/QA/bank_financial/GCashTransactionHistory/GcashTransactionHistory_2025-11-04_2026-01-03.pdf"
+      ]
+    },
+    {
+      "id": "BS-GCASH-001",
+      "documentType": "BankStatement",
+      "testType": "default",
+      "description": "GCash bank statement files from QA/Gcash — happy path",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/Gcash/HP-BS-01_GCash QA.PDF",
+        "gs://verifyiq-internal-testing/QA/Gcash/HP-BS-02_GCash QA_Nov.pdf",
+        "gs://verifyiq-internal-testing/QA/Gcash/HP-BS-04_GCash_QA.pdf"
+      ]
+    },
+    {
+      "id": "BS-MAYA-EDGE-001",
+      "documentType": "BankStatement",
+      "testType": "default",
+      "description": "Maya edge cases — null date rows, compact dates, date reversals",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/MAYA/qa-test-data_Maya_TC01c_Maya_NullDateSummaryRows.pdf",
+        "gs://verifyiq-internal-testing/QA/MAYA/qa-test-data_Maya_TC01d_Maya_CompactDateFormat.pdf",
+        "gs://verifyiq-internal-testing/QA/MAYA/qa-test-data_Maya_TC01e_Maya_GenuineDateReversal.pdf"
+      ]
+    },
+    {
+      "id": "BS-METRO-001",
+      "documentType": "BankStatement",
+      "testType": "default",
+      "description": "Metrobank bank statement — default parse",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/Metrobank/metrobank bank statement.pdf",
+        "gs://verifyiq-internal-testing/QA/Metrobank/metro2.pdf"
+      ]
+    },
+    {
+      "id": "BS-TONIK-001",
+      "documentType": "BankStatement",
+      "testType": "default",
+      "description": "Tonik bank statement — single and multi account",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/tonik/single tonik.pdf",
+        "gs://verifyiq-internal-testing/QA/tonik/multi tonik.pdf"
+      ]
+    },
+    {
+      "id": "BS-UBQE-001",
+      "documentType": "BankStatement",
+      "testType": "default",
+      "description": "UnionBank (UB) existing QA bank statements",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/UB bank statement/james-test-data_bankstatements_UB_files_UB-012.pdf",
+        "gs://verifyiq-internal-testing/QA/UB bank statement/james-test-data_bankstatements_UB_files_UB-014.pdf"
+      ]
+    },
+
+    {"_section": "===== EMPLOYMENT ====="},
+
     {
       "id": "PS-001",
       "documentType": "Payslip",
-      "bucket": "gs://gcash-test-data-staging/payslips",
+      "testType": "default",
+      "description": "Payslip default parse — PS-002 and PS-013",
       "files": [
-        "gs://gcash-test-data-staging/payslips/PS-001.png",
-        "gs://gcash-test-data-staging/payslips/PS-002.png",
-        "gs://gcash-test-data-staging/payslips/PS-003.png",
-        "gs://gcash-test-data-staging/payslips/PS-004.png",
-        "gs://gcash-test-data-staging/payslips/PS-005.png"
+        "gs://verifyiq-internal-testing/QA/employment/Payslip/PS-002.png",
+        "gs://verifyiq-internal-testing/QA/employment/Payslip/PS-013.pdf"
       ]
     },
     {
-      "id": "ELEC-GCASH-001",
-      "documentType": "ElectricUtilityBillingStatement",
-      "bucket": "gs://gcash-test-data-staging/electricity-bills",
+      "id": "PS-DEEP-001",
+      "documentType": "Payslip",
+      "testType": "payslip-deep",
+      "description": "Payslip deep validation — gross/net pay, SSS deduction, completeness",
       "files": [
-        "gs://gcash-test-data-staging/electricity-bills/55557_MERALCO_BILL_005.jpeg",
-        "gs://gcash-test-data-staging/electricity-bills/55577_MERALCO_BILL_V7.jpg",
-        "gs://gcash-test-data-staging/electricity-bills/55579_MERALCO_BILL_V7.jpg",
-        "gs://gcash-test-data-staging/electricity-bills/55581_MERALCO_BILL-V7.jpg",
-        "gs://gcash-test-data-staging/electricity-bills/meralco-toralde.png"
+        "gs://verifyiq-internal-testing/QA/employment/Payslip/Alorica_Payslip.pdf"
       ]
     },
     {
-      "id": "NBI-001",
-      "documentType": "NBIClearance",
-      "bucket": "gs://gcash-test-data-staging/nbi",
+      "id": "PS-FRAUD-001",
+      "documentType": "Payslip",
+      "testType": "fraud",
+      "pipeline": {"fraud_detection": true, "use_cache": false},
+      "description": "Payslip fraud detection — undertime fraud test document",
       "files": [
-        "gs://gcash-test-data-staging/nbi/NBI_1.jpg",
-        "gs://gcash-test-data-staging/nbi/NBI_2.jpg",
-        "gs://gcash-test-data-staging/nbi/NBI_3.png",
-        "gs://gcash-test-data-staging/nbi/NBI_4.png"
+        "gs://verifyiq-internal-testing/QA/Payslip Miscalc Test/undertime_fraud_test.pdf"
+      ]
+    },
+    {
+      "id": "PS-EDGE-001",
+      "documentType": "Payslip",
+      "testType": "default",
+      "description": "Payslip edge cases — zero deductions, null deductions, zero gross",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/employment/Payslip/synthetic-payslip-zero-deductions.pdf",
+        "gs://verifyiq-internal-testing/QA/employment/Payslip/synthetic-payslip-null-deductions-TC301-06.pdf",
+        "gs://verifyiq-internal-testing/QA/employment/Payslip/synthetic-payslip-zero-gross-TC301-07.pdf"
+      ]
+    },
+    {
+      "id": "PS-SAFC-001",
+      "documentType": "Payslip",
+      "testType": "default",
+      "description": "SAFC payslips — multiple employer variants",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/employment/Payslip/PS-SAFC-001.pdf",
+        "gs://verifyiq-internal-testing/QA/employment/Payslip/PS-SAFC-002.pdf",
+        "gs://verifyiq-internal-testing/QA/employment/Payslip/PS-SAFC-003.pdf"
+      ]
+    },
+    {
+      "id": "COE-001",
+      "documentType": "CertificateOfEmployment",
+      "testType": "default",
+      "description": "Certificate of Employment — default parse",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/employment/CertificateOfEmployment/CertificateOfEmployment.pdf",
+        "gs://verifyiq-internal-testing/QA/employment/CertificateOfEmployment/CertificateOfEmployment_3_2025-12-15_COE.pdf"
+      ]
+    },
+
+    {"_section": "===== IDENTITY / KYC ====="},
+
+    {
+      "id": "PHILID-001",
+      "documentType": "PhilippineNationalID",
+      "testType": "default",
+      "description": "Philippine National ID — default parse",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/identity_kyc/PhilippineNationalID/National ID_00001- Identification System ID - VICTOR CASTA\u00d1EDA CAPITULO.jpg",
+        "gs://verifyiq-internal-testing/QA/identity_kyc/PhilippineNationalID/55640_National ID-V2.png"
+      ]
+    },
+    {
+      "id": "PHILID-FRAUD-TAMPERED-001",
+      "documentType": "PhilippineNationalID",
+      "testType": "fraud",
+      "pipeline": {"fraud_detection": true, "use_cache": false},
+      "description": "Philippine National ID — tampered QR fraud detection",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/identity_kyc/PhilippineNationalID/QA_PhilID_philid_tampered_qr.png"
+      ]
+    },
+    {
+      "id": "PHILID-FRAUD-DAMAGED-001",
+      "documentType": "PhilippineNationalID",
+      "testType": "fraud",
+      "pipeline": {"fraud_detection": true, "use_cache": false},
+      "description": "Philippine National ID — damaged QR fraud detection",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/identity_kyc/PhilippineNationalID/QA_PhilID_philid_damaged_qr.png"
+      ]
+    },
+    {
+      "id": "DL-001",
+      "documentType": "DriversLicense",
+      "testType": "default",
+      "description": "Driver's License — default parse",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/identity_kyc/DriversLicense/DriversLicense.jpeg"
+      ]
+    },
+    {
+      "id": "DL-FRAUD-FP-001",
+      "documentType": "DriversLicense",
+      "testType": "fraud",
+      "pipeline": {"fraud_detection": true, "use_cache": false},
+      "description": "Driver's License — false positive fraud check (expect fraudScore < 30)",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/Drivers False Positive/56057_2024-11-25 02_29_10 Driver_s License - RAMILYN JOY MAGBOO MIA.jpg",
+        "gs://verifyiq-internal-testing/QA/Drivers False Positive/56063_Driver's License - VRENT BENEDICK LIM YU.jpg",
+        "gs://verifyiq-internal-testing/QA/Drivers False Positive/56074_Driver's License front.jpg"
       ]
     },
     {
       "id": "PASS-001",
       "documentType": "Passport",
-      "bucket": "gs://gcash-test-data-staging/passports ",
+      "testType": "default",
+      "description": "Passport — default parse",
       "files": [
-        "gs://gcash-test-data-staging/passports /PASSPORT_1.jpg",
-        "gs://gcash-test-data-staging/passports /PASSPORT_2.jpg",
-        "gs://gcash-test-data-staging/passports /PASSPORT_3.png",
-        "gs://gcash-test-data-staging/passports /PASSPORT_4.jpg",
-        "gs://gcash-test-data-staging/passports /PASSPORT_5.jpg"
+        "gs://verifyiq-internal-testing/QA/identity_kyc/Passport/Johneric.jpg"
+      ]
+    },
+    {
+      "id": "PASS-FRAUD-FP-001",
+      "documentType": "Passport",
+      "testType": "fraud",
+      "pipeline": {"fraud_detection": true, "use_cache": false},
+      "description": "Passport — false positive fraud check (expect fraudScore < 30)",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/Passport false positive/56055_ Passport - MARLON  RAQUEL.jpg",
+        "gs://verifyiq-internal-testing/QA/Passport false positive/56070_ Passport - ROLANDO III AMORES.jpg",
+        "gs://verifyiq-internal-testing/QA/Passport false positive/56073_Passport - MATA MICHELLE DE.jpg"
+      ]
+    },
+    {
+      "id": "UMID-001",
+      "documentType": "UMID",
+      "testType": "default",
+      "description": "UMID — default parse",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/identity_kyc/UMID/UMID.jpg"
+      ]
+    },
+    {
+      "id": "SSS-001",
+      "documentType": "SSSID",
+      "testType": "default",
+      "description": "SSS ID — default parse",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/identity_kyc/SSSID/SSS ID_66001_Social Security system-RANDY MANDAWE ROSATASE.jpeg"
+      ]
+    },
+    {
+      "id": "PHILHEALTH-001",
+      "documentType": "PhilHealthID",
+      "testType": "default",
+      "description": "PhilHealth ID — default parse",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/identity_kyc/PhilHealthID/PhilhealthID.jpeg"
+      ]
+    },
+    {
+      "id": "NBI-001",
+      "documentType": "NBIClearance",
+      "testType": "default",
+      "description": "NBI Clearance — default parse",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/identity_kyc/NBIClearance/NBI_1.jpg"
+      ]
+    },
+    {
+      "id": "PRC-001",
+      "documentType": "PRCID",
+      "testType": "default",
+      "description": "PRC ID — default parse",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/identity_kyc/PRCID/PRCID.jpeg"
+      ]
+    },
+    {
+      "id": "ACRI-001",
+      "documentType": "ACRICard",
+      "testType": "default",
+      "description": "ACR I-Card — default parse",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/identity_kyc/ACRICard/ACR ID_59003_John Charles_ACR ID.jpg"
+      ]
+    },
+    {
+      "id": "HDMF-001",
+      "documentType": "HDMFID",
+      "testType": "default",
+      "description": "HDMF / Pag-IBIG ID — default parse",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/identity_kyc/HDMFID/HDMF_Pag-ibig loyalty card ID_59004_494690196_1421782625903249_5483959367342265346_n_front.jpeg"
+      ]
+    },
+    {
+      "id": "POSTAL-001",
+      "documentType": "PostalID",
+      "testType": "default",
+      "description": "Postal ID — default parse",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/identity_kyc/PostalID/PostalID.jpg"
+      ]
+    },
+    {
+      "id": "VOTERS-001",
+      "documentType": "VotersID",
+      "testType": "default",
+      "description": "Voter's ID — default parse",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/identity_kyc/VotersID/VotersID.jpg"
+      ]
+    },
+
+    {"_section": "===== UTILITY BILLS ====="},
+
+    {
+      "id": "ELEC-001",
+      "documentType": "ElectricUtilityBillingStatement",
+      "testType": "default",
+      "description": "Meralco electric bill — default parse",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/Electric/Meralco_ElectricUtilityBillingStatement.jpg"
+      ]
+    },
+    {
+      "id": "ELEC-FRAUD-001",
+      "documentType": "ElectricUtilityBillingStatement",
+      "testType": "fraud",
+      "pipeline": {"fraud_detection": true, "use_cache": false},
+      "description": "Meralco electric bill — fraud detection (manipulated bill)",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/Electric/Fraud_Meralco_Bill.png"
+      ]
+    },
+    {
+      "id": "PLDT-001",
+      "documentType": "PLDTTelcoBill",
+      "testType": "default",
+      "description": "PLDT telco bill — default parse",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/PLDTTelcoBill/PLDTTelcoBill.pdf"
+      ]
+    },
+
+    {"_section": "===== KYB ====="},
+
+    {
+      "id": "BIR-001",
+      "documentType": "BIRForm2303",
+      "testType": "default",
+      "description": "BIR Form 2303 — default parse",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/BIR 2303/BIRForm2303.jpeg"
+      ]
+    },
+    {
+      "id": "BIR-FRAUD-001",
+      "documentType": "BIRForm2303",
+      "testType": "fraud",
+      "pipeline": {"fraud_detection": true, "use_cache": false},
+      "description": "BIR Form 2303 — manipulated document fraud detection",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/BIR 2303/BIR_Form_2303_manipulated.jpeg"
       ]
     },
     {
       "id": "DTI-001",
       "documentType": "DTIRegistrationCertificate",
-      "bucket": "gs://gcash-test-data-staging/DTI",
+      "testType": "default",
+      "description": "DTI Registration Certificate — default parse",
       "files": [
-        "gs://gcash-test-data-staging/DTI/DTI_1.png",
-        "gs://gcash-test-data-staging/DTI/DTI_2.jpeg",
-        "gs://gcash-test-data-staging/DTI/DTI_3.jpeg",
-        "gs://gcash-test-data-staging/DTI/DTI_4.jpeg",
-        "gs://gcash-test-data-staging/DTI/DTI_5.pdf"
+        "gs://verifyiq-internal-testing/QA/DTI/DTIRegistrationCertificate.png"
       ]
     },
 
-    {
-      "id": "FRAUD-ID-001",
-      "documentType": "PhilippineNationalID",
-      "testType": "fraud",
-      "pipeline": {"fraud_detection": true, "use_cache": false},
-      "bucket": "gs://rafi-images-staging/various-ids",
-      "files": [
-        "gs://rafi-images-staging/various-ids/00007-Identification System ID - FIRST LAST (1).jpg",
-        "gs://rafi-images-staging/various-ids/55601_2025-04-15 01_34_53 Identification System ID - GLERIZA PAGUNTALAN BATIQUIN.jpg",
-        "gs://rafi-images-staging/various-ids/55603_2024-12-02 06_31_28 Identification System ID - FIRST LAST.jpg",
-        "gs://rafi-images-staging/various-ids/55606 IMG20250317125605.jpg",
-        "gs://rafi-images-staging/various-ids/55607 IMG20250324100314.jpg"
-      ]
-    },
-    {
-      "id": "FRAUD-DL-001",
-      "documentType": "DriversLicense",
-      "testType": "fraud",
-      "pipeline": {"fraud_detection": true, "use_cache": false},
-      "bucket": "gs://rafi-images-staging/various-ids",
-      "files": [
-        "gs://rafi-images-staging/various-ids/55075_Driver's license_VERTUCIO, ADONIS FRIAS front .jpg",
-        "gs://rafi-images-staging/various-ids/55076_Driver's license_ABAÑO, GILBERT ANTHONY ORCA front .jpeg",
-        "gs://rafi-images-staging/various-ids/56055_Driver license_front.jpeg",
-        "gs://rafi-images-staging/various-ids/55055_Driver license_front.jpeg",
-        "gs://rafi-images-staging/various-ids/56054_2025-05-20 03_24_29 Passport - KRISTY undefined GOLEZ.jpg"
-      ]
-    },
-    {
-      "id": "FRAUD-PS-001",
-      "documentType": "Payslip",
-      "testType": "fraud",
-      "pipeline": {"fraud_detection": true, "use_cache": false},
-      "bucket": "gs://gcash-test-data-staging/payslips",
-      "files": [
-        "gs://gcash-test-data-staging/payslips/PS-006.pdf",
-        "gs://gcash-test-data-staging/payslips/PS-007.pdf",
-        "gs://gcash-test-data-staging/payslips/PS-008.pdf"
-      ]
-    },
-    {
-      "id": "FRAUD-BIR-001",
-      "documentType": "BIRForm2303",
-      "testType": "fraud",
-      "pipeline": {"fraud_detection": true, "use_cache": false},
-      "bucket": "gs://rafi-images-staging/bir2303",
-      "files": [
-        "gs://rafi-images-staging/bir2303/2024_11_23_bir_registration_certificate_form_2303.jpeg",
-        "gs://rafi-images-staging/bir2303/2024_11_25_bir_registration_certificate_form_2303.jpeg",
-        "gs://rafi-images-staging/bir2303/2024_11_28_bir_registration_certificate_form_2303(1).jpeg"
-      ]
-    },
-    {
-      "id": "FRAUD-ELEC-001",
-      "documentType": "ElectricUtilityBillingStatement",
-      "testType": "fraud",
-      "pipeline": {"fraud_detection": true, "use_cache": false},
-      "bucket": "gs://rafi-images-staging/electricity-bills",
-      "files": [
-        "gs://rafi-images-staging/electricity-bills/55573_MERALCO_BILL_V7.jpg",
-        "gs://rafi-images-staging/electricity-bills/55575_MERALCO_BILL_0017.jpg",
-        "gs://rafi-images-staging/electricity-bills/55577_MERALCO_BILL_V7.jpg"
-      ]
-    },
-
-    {
-      "id": "BS-DEEP-001",
-      "documentType": "BankStatement",
-      "testType": "bank-deep",
-      "bucket": "gs://gcash-test-data-staging/bank_statements",
-      "files": [
-        "gs://gcash-test-data-staging/bank_statements/BPI.pdf",
-        "gs://gcash-test-data-staging/bank_statements/SBC_ESOA_SEPT_2024.pdf",
-        "gs://gcash-test-data-staging/bank_statements/Tonik_Consolidated.pdf"
-      ]
-    },
-
-    {
-      "id": "BLS-001",
-      "documentType": "bls",
-      "testType": "bls",
-      "bucket": "",
-      "files": [],
-      "endpoints": [
-        "/api/v1/applications/",
-        "/api/v1/applications/upload-urls"
-      ]
-    },
-
-    {
-      "id": "CACHE-001",
-      "documentType": "BankStatement",
-      "testType": "cache",
-      "pipeline": {"use_cache": true},
-      "bucket": "gs://gcash-test-data-staging/bank_statements",
-      "files": [
-        "gs://gcash-test-data-staging/bank_statements/BS-004.png"
-      ]
-    },
-
-    {
-      "id": "SEC-001",
-      "documentType": "BankStatement",
-      "testType": "security",
-      "bucket": "gs://gcash-test-data-staging/bank_statements",
-      "files": [
-        "gs://gcash-test-data-staging/bank_statements/BS-005.png"
-      ]
-    },
-
-    {
-      "id": "CROSS-001",
-      "documentType": "crosscheck",
-      "testType": "crosscheck",
-      "bucket": "gs://gcash-test-data-staging",
-      "notes": "Uses PS-001 + BS-001 data for cross-document validation",
-      "files": [
-        "gs://gcash-test-data-staging/payslips/PS-001.png",
-        "gs://gcash-test-data-staging/bank_statements/BS-001.png"
-      ]
-    },
-
-    {
-      "id": "PS-DEEP-001",
-      "documentType": "Payslip",
-      "testType": "payslip-deep",
-      "bucket": "gs://gcash-test-data-staging/payslips",
-      "files": [
-        "gs://gcash-test-data-staging/payslips/PS-001.png",
-        "gs://gcash-test-data-staging/payslips/PS-003.png",
-        "gs://gcash-test-data-staging/payslips/PS-005.png"
-      ]
-    },
-
-    {
-      "id": "COMP-001",
-      "documentType": "BankStatement",
-      "testType": "completeness",
-      "bucket": "gs://gcash-test-data-staging/bank_statements",
-      "files": ["gs://gcash-test-data-staging/bank_statements/BS-001.png"]
-    },
-    {
-      "id": "COMP-002",
-      "documentType": "Payslip",
-      "testType": "completeness",
-      "bucket": "gs://gcash-test-data-staging/payslips",
-      "files": ["gs://gcash-test-data-staging/payslips/PS-001.png"]
-    },
-    {
-      "id": "COMP-003",
-      "documentType": "PhilippineNationalID",
-      "testType": "completeness",
-      "bucket": "gs://rafi-images-staging/various-ids",
-      "files": ["gs://rafi-images-staging/various-ids/55640_National ID-V2.png"]
-    },
-
-    {
-      "id": "COST-001",
-      "documentType": "cost-tracking",
-      "testType": "cost-tracking",
-      "bucket": "",
-      "files": [],
-      "endpoints": [
-        "/monitoring/api/v1/costs/overview",
-        "/monitoring/api/v1/costs/by-tenant",
-        "/monitoring/api/v1/costs/by-document-type",
-        "/monitoring/api/v1/costs/by-model",
-        "/monitoring/api/v1/costs/timeseries"
-      ]
-    },
+    {"_section": "===== INFRASTRUCTURE / INTEGRATION (kept from original) ====="},
 
     {
       "id": "HEALTH-001",
       "documentType": "health",
       "testType": "health",
-      "bucket": "",
+      "description": "Health endpoints — startup, live, ready, detailed, circuit breakers",
       "files": [],
       "endpoints": [
         "/health/startup",
@@ -317,36 +457,67 @@
         "/ai-gateway/health/gateway-circuit-breakers"
       ]
     },
-
     {
-      "id": "GCASH-BS-001",
+      "id": "SEC-001",
       "documentType": "BankStatement",
-      "testType": "gcash-computed",
-      "bucket": "gs://gcash-test-data-staging/bank_statements",
+      "testType": "security",
+      "description": "Security headers + auth (200, 401, 403)",
       "files": [
-        "gs://gcash-test-data-staging/bank_statements/BPI.pdf",
-        "gs://gcash-test-data-staging/bank_statements/SBC_ESOA_SEPT_2024.pdf"
+        "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/BDO_BankStatement.png"
       ]
     },
     {
-      "id": "GCASH-ELEC-001",
-      "documentType": "ElectricUtilityBillingStatement",
-      "testType": "gcash-computed",
-      "bucket": "gs://gcash-test-data-staging/electricity-bills",
+      "id": "CACHE-001",
+      "documentType": "BankStatement",
+      "testType": "cache",
+      "pipeline": {"use_cache": true},
+      "description": "Cache hit validation — parse same doc twice, assert fromCache",
       "files": [
-        "gs://gcash-test-data-staging/electricity-bills/55557_MERALCO_BILL_005.jpeg",
-        "gs://gcash-test-data-staging/electricity-bills/55577_MERALCO_BILL_V7.jpg"
+        "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/BDO_BankStatement.png"
       ]
     },
-
+    {
+      "id": "CROSS-001",
+      "documentType": "crosscheck",
+      "testType": "crosscheck",
+      "description": "Cross-document validation — payslip + bank statement crosscheck",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/employment/Payslip/PS-002.png",
+        "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/BPI_eStatement_Dec 2025.pdf"
+      ]
+    },
+    {
+      "id": "BLS-001",
+      "documentType": "bls",
+      "testType": "bls",
+      "description": "BLS application endpoints — GET + POST /api/v1/applications/*",
+      "files": [],
+      "endpoints": [
+        "/api/v1/applications/",
+        "/api/v1/applications/upload-urls"
+      ]
+    },
+    {
+      "id": "COST-001",
+      "documentType": "cost-tracking",
+      "testType": "cost-tracking",
+      "description": "Cost monitoring endpoints — overview, by-tenant, by-doc-type, by-model, timeseries",
+      "files": [],
+      "endpoints": [
+        "/monitoring/api/v1/costs/overview",
+        "/monitoring/api/v1/costs/by-tenant",
+        "/monitoring/api/v1/costs/by-document-type",
+        "/monitoring/api/v1/costs/by-model",
+        "/monitoring/api/v1/costs/timeseries"
+      ]
+    },
     {
       "id": "DEDUP-001",
       "documentType": "BankStatement",
       "testType": "dedup",
-      "bucket": "gs://gcash-test-data-staging/bank_statements",
-      "notes": "Same file submitted 3x with different documentIds",
+      "description": "Deduplication — same file 3x in one batch, assert no tripling",
       "files": [
-        "gs://gcash-test-data-staging/bank_statements/BS-001.png"
+        "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/BDO_BankStatement.png"
       ]
     }
   ]

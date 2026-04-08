@@ -51,6 +51,8 @@ const GATEWAY_DOCTYPE_MAP = {
   BIRForm2303: 'BIRForm2303',
   DTIRegistrationCertificate: 'DTIRegistrationCertificate',
   CertificateOfEmployment: 'COE',
+  CreditCardStatement: 'CREDIT_CARD_STATEMENT',
+  GCashTransactionHistory: 'GCASH_TRANSACTION_HISTORY',
 };
 
 // -- Per-doctype response field validation ------------------------------------
