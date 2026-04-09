@@ -33,8 +33,6 @@ const GATEWAY_DOCTYPE_MAP = {
   BankStatement: 'BANK_STATEMENT',
   Payslip: 'PAYSLIP',
   ElectricUtilityBillingStatement: 'ELECTRICITY_BILL',
-  PLDTTelcoBill: 'TelcoBill',
-  WaterUtilityBillingStatement: 'WaterBill',
   PhilippineNationalID: 'PHILIPPINE_NATIONAL_ID',
   DriversLicense: 'DRIVERS_LICENSE',
   Passport: 'PASSPORT',
@@ -48,11 +46,14 @@ const GATEWAY_DOCTYPE_MAP = {
   VotersID: 'VOTERS_ID',
   NBIClearance: 'NBI_CLEARANCE',
   ACRICard: 'ACRI_CARD',
+  SSSPersonalRecord: 'SSS_PERSONAL_RECORD',
   BIRForm2303: 'BIRForm2303',
-  DTIRegistrationCertificate: 'DTIRegistrationCertificate',
+  WaterUtilityBillingStatement: 'WaterBill',
+  TelcoBill: 'TelcoBill',
   CertificateOfEmployment: 'COE',
   CreditCardStatement: 'CREDIT_CARD_STATEMENT',
   GcashTransactionHistory: 'GCASH_TRANSACTION_HISTORY',
+  DTIRegistrationCertificate: 'DTIRegistrationCertificate',
 };
 
 // -- Per-doctype response field validation ------------------------------------
@@ -1060,12 +1061,17 @@ async function runDedupGcashFixture(fixture, results) {
     documentType: gatewayDocType, filename: file.split('/').pop(), preSignedUrl: file,
   }));
 
-  // Add supporting files as SECONDARY
+  // Add supporting files with their own documentType and classification
   if (fixture.supportingFiles) {
-    for (const file of fixture.supportingFiles) {
+    for (const sf of fixture.supportingFiles) {
+      const sfPath = typeof sf === 'string' ? sf : sf.path;
+      const sfDocType = (typeof sf === 'object' && sf.documentType)
+        ? (GATEWAY_DOCTYPE_MAP[sf.documentType] || sf.documentType)
+        : gatewayDocType;
+      const sfClass = (typeof sf === 'object' && sf.documentClassification) || 'SUPPORTING';
       documents.push({
-        documentId: randomUUID(), fileId: randomUUID(), documentClassification: 'SECONDARY',
-        documentType: gatewayDocType, filename: file.split('/').pop(), preSignedUrl: file,
+        documentId: randomUUID(), fileId: randomUUID(), documentClassification: sfClass,
+        documentType: sfDocType, filename: sfPath.split('/').pop(), preSignedUrl: sfPath,
       });
     }
   }
@@ -1104,8 +1110,9 @@ async function runDedupGcashFixture(fixture, results) {
     console.log(`    Received ${callbacks.length} callbacks`);
   } catch (err) { results.push({ file: null, status, passed: false, body, summary: `Polling: ${err.message}` }); return; }
 
-  // Decrypt all callbacks; find application callback and extract computedFields
+  // Decrypt all callbacks; find application callback and extract computedFields + crossCheckFindings
   let computedFields = null;
+  let crossCheckFindings = null;
   for (const cb of callbacks) {
     const rawBody = cb.content ?? cb.body ?? JSON.stringify(cb);
     let decrypted;
@@ -1117,6 +1124,7 @@ async function runDedupGcashFixture(fixture, results) {
       const bsData = decrypted.ocrResult?.computedFields?.BANK_STATEMENT?.data
         ?? decrypted.computedFields?.BANK_STATEMENT?.data;
       if (bsData) computedFields = bsData;
+      crossCheckFindings = decrypted.ocrResult?.crossCheckFindings ?? decrypted.crossCheckFindings ?? null;
     }
   }
 
@@ -1157,10 +1165,47 @@ async function runDedupGcashFixture(fixture, results) {
     }
   }
 
+  // Log and assert crossCheckFindings from application callback
+  console.log('\n    crossCheckFindings:');
+  if (crossCheckFindings && Array.isArray(crossCheckFindings)) {
+    console.log(JSON.stringify(crossCheckFindings, null, 2).split('\n').map(l => '    ' + l).join('\n'));
+  } else {
+    console.log('      (none found)');
+    errors.push('crossCheckFindings missing or not an array');
+  }
+
+  if (Array.isArray(crossCheckFindings)) {
+    for (const field of ['name', 'address']) {
+      const entry = crossCheckFindings.find(f => f.field === field);
+      if (!entry) { errors.push(`crossCheck: "${field}" entry not found`); console.log(`    FAIL crossCheck: "${field}" entry not found`); continue; }
+
+      if (!Array.isArray(entry.valuePrimary) || entry.valuePrimary.length === 0) {
+        errors.push(`crossCheck ${field}: valuePrimary is empty`);
+        console.log(`    FAIL crossCheck ${field}: valuePrimary is empty`);
+      } else {
+        console.log(`    PASS crossCheck ${field}: valuePrimary has ${entry.valuePrimary.length} value(s)`);
+      }
+
+      if (!Array.isArray(entry.valueSecondary) || entry.valueSecondary.length === 0) {
+        errors.push(`crossCheck ${field}: valueSecondary is empty`);
+        console.log(`    FAIL crossCheck ${field}: valueSecondary is empty`);
+      } else {
+        console.log(`    PASS crossCheck ${field}: valueSecondary has ${entry.valueSecondary.length} value(s)`);
+      }
+
+      if (entry.match === true) {
+        console.log(`    PASS crossCheck ${field}: match === true`);
+      } else {
+        errors.push(`crossCheck ${field}: match=${JSON.stringify(entry.match)}, expected true`);
+        console.log(`    FAIL crossCheck ${field}: match === ${JSON.stringify(entry.match)} (expected true)`);
+      }
+    }
+  }
+
   if (errors.length) {
     results.push({ file: null, status, passed: false, body: null, summary: `Dedup assertion failed: ${errors.join(', ')}` });
   } else {
-    results.push({ file: null, status, passed: true, body: null, summary: 'HTTP 200 -- dedup validated, totals not tripled' });
+    results.push({ file: null, status, passed: true, body: null, summary: 'HTTP 200 -- dedup + crosscheck validated' });
   }
 }
 

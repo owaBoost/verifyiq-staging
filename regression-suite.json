@@ -679,7 +679,11 @@
         "gs://verifyiq-internal-testing/QA/Gcash/HP-BS-01_GCash_QA_91days.pdf"
       ],
       "supportingFiles": [
-        "gs://verifyiq-internal-testing/QA/Gcash/HP-SUP-03.JPG"
+        {
+          "path": "gs://verifyiq-internal-testing/QA/Gcash/HP-SUP-03.JPG",
+          "documentType": "ElectricUtilityBillingStatement",
+          "documentClassification": "SUPPORTING"
+        }
       ]
     }
   ]
