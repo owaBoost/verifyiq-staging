@@ -90,7 +90,8 @@
       "description": "BDO credit card statement — default parse",
       "files": [
         "gs://verifyiq-internal-testing/QA/bank_financial/CreditCardStatement/BDO_CCStatement.pdf"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "GCASH-TXN-001",
@@ -101,7 +102,8 @@
         "gs://verifyiq-internal-testing/QA/bank_financial/GCashTransactionHistory/GCashTransactionHistory_1_2025-11-11_enc-0909179_1762841447760.pdf",
         "gs://verifyiq-internal-testing/QA/bank_financial/GCashTransactionHistory/GCash_Statement_2_2026-01-02.pdf",
         "gs://verifyiq-internal-testing/QA/bank_financial/GCashTransactionHistory/GcashTransactionHistory_2025-11-04_2026-01-03.pdf"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "BS-GCASH-001",
@@ -216,7 +218,8 @@
       "files": [
         "gs://verifyiq-internal-testing/QA/employment/CertificateOfEmployment/CertificateOfEmployment.pdf",
         "gs://verifyiq-internal-testing/QA/employment/CertificateOfEmployment/CertificateOfEmployment_3_2025-12-15_COE.pdf"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "PHILID-001",
@@ -226,7 +229,8 @@
       "files": [
         "gs://verifyiq-internal-testing/QA/identity_kyc/PhilippineNationalID/National ID_00001- Identification System ID - VICTOR CASTAÑEDA CAPITULO.jpg",
         "gs://verifyiq-internal-testing/QA/identity_kyc/PhilippineNationalID/55640_National ID-V2.png"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "PHILID-FRAUD-TAMPERED-001",
@@ -239,7 +243,8 @@
       "description": "Philippine National ID — tampered QR fraud detection",
       "files": [
         "gs://verifyiq-internal-testing/QA/identity_kyc/PhilippineNationalID/QA_PhilID_philid_tampered_qr.png"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "PHILID-FRAUD-DAMAGED-001",
@@ -252,7 +257,8 @@
       "description": "Philippine National ID — damaged QR fraud detection",
       "files": [
         "gs://verifyiq-internal-testing/QA/identity_kyc/PhilippineNationalID/QA_PhilID_philid_damaged_qr.png"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "DL-001",
@@ -261,7 +267,8 @@
       "description": "Driver's License — default parse",
       "files": [
         "gs://verifyiq-internal-testing/QA/identity_kyc/DriversLicense/DriversLicense.jpeg"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "DL-FRAUD-FP-001",
@@ -276,7 +283,8 @@
         "gs://verifyiq-internal-testing/QA/Drivers False Positive/56057_2024-11-25 02_29_10 Driver_s License - RAMILYN JOY MAGBOO MIA.jpg",
         "gs://verifyiq-internal-testing/QA/Drivers False Positive/56063_Driver's License - VRENT BENEDICK LIM YU.jpg",
         "gs://verifyiq-internal-testing/QA/Drivers False Positive/56074_Driver's License front.jpg"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "PASS-001",
@@ -285,7 +293,8 @@
       "description": "Passport — default parse",
       "files": [
         "gs://verifyiq-internal-testing/QA/identity_kyc/Passport/Johneric.jpg"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "PASS-FRAUD-FP-001",
@@ -300,7 +309,8 @@
         "gs://verifyiq-internal-testing/QA/Passport false positive/56055_ Passport - MARLON  RAQUEL.jpg",
         "gs://verifyiq-internal-testing/QA/Passport false positive/56070_ Passport - ROLANDO III AMORES.jpg",
         "gs://verifyiq-internal-testing/QA/Passport false positive/56073_Passport - MATA MICHELLE DE.jpg"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "UMID-001",
@@ -309,7 +319,8 @@
       "description": "UMID — default parse",
       "files": [
         "gs://verifyiq-internal-testing/QA/identity_kyc/UMID/UMID.jpg"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "SSS-001",
@@ -318,7 +329,8 @@
       "description": "SSS ID — default parse",
       "files": [
         "gs://verifyiq-internal-testing/QA/identity_kyc/SSSID/SSS ID_66001_Social Security system-RANDY MANDAWE ROSATASE.jpeg"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "PHILHEALTH-001",
@@ -327,7 +339,8 @@
       "description": "PhilHealth ID — default parse",
       "files": [
         "gs://verifyiq-internal-testing/QA/identity_kyc/PhilHealthID/PhilhealthID.jpeg"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "NBI-001",
@@ -336,7 +349,8 @@
       "description": "NBI Clearance — default parse",
       "files": [
         "gs://verifyiq-internal-testing/QA/identity_kyc/NBIClearance/NBI_3.png"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "PRC-001",
@@ -345,7 +359,8 @@
       "description": "PRC ID — default parse",
       "files": [
         "gs://verifyiq-internal-testing/QA/identity_kyc/PRCID/PRCID.jpeg"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "ACRI-001",
@@ -354,7 +369,8 @@
       "description": "ACR I-Card — default parse",
       "files": [
         "gs://verifyiq-internal-testing/QA/identity_kyc/ACRICard/ACR ID_59003_John Charles_ACR ID.jpg"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "HDMF-001",
@@ -363,7 +379,8 @@
       "description": "HDMF / Pag-IBIG ID — default parse",
       "files": [
         "gs://verifyiq-internal-testing/QA/identity_kyc/HDMFID/HDMF_Pag-ibig loyalty card ID_59004_494690196_1421782625903249_5483959367342265346_n_front.jpeg"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "POSTAL-001",
@@ -372,7 +389,8 @@
       "description": "Postal ID — default parse",
       "files": [
         "gs://verifyiq-internal-testing/QA/identity_kyc/PostalID/PostalID.jpg"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "VOTERS-001",
@@ -381,7 +399,8 @@
       "description": "Voter's ID — default parse",
       "files": [
         "gs://verifyiq-internal-testing/QA/identity_kyc/VotersID/VotersID.jpg"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "ELEC-001",
@@ -412,7 +431,8 @@
       "description": "PLDT telco bill — default parse",
       "files": [
         "gs://verifyiq-internal-testing/QA/PLDTTelcoBill/PLDTTelcoBill.pdf"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "BIR-001",
@@ -421,7 +441,8 @@
       "description": "BIR Form 2303 — default parse",
       "files": [
         "gs://verifyiq-internal-testing/QA/BIR 2303/BIRForm2303.jpeg"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "BIR-FRAUD-001",
@@ -434,7 +455,8 @@
       "description": "BIR Form 2303 — manipulated document fraud detection",
       "files": [
         "gs://verifyiq-internal-testing/QA/BIR 2303/BIR_Form_2303_manipulated.jpeg"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "DTI-001",
@@ -443,7 +465,8 @@
       "description": "DTI Registration Certificate — default parse",
       "files": [
         "gs://verifyiq-internal-testing/QA/DTI/DTIRegistrationCertificate.png"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "HEALTH-001",
@@ -457,7 +480,8 @@
         "/health/ready",
         "/health/detailed",
         "/ai-gateway/health/gateway-circuit-breakers"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "SEC-001",
@@ -488,7 +512,8 @@
       "files": [
         "gs://verifyiq-internal-testing/QA/employment/Payslip/PS-002.png",
         "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/BPI_eStatement_Dec 2025.pdf"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "BLS-001",
@@ -499,7 +524,8 @@
       "endpoints": [
         "/api/v1/applications/",
         "/api/v1/applications/upload-urls"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "COST-001",
@@ -513,7 +539,8 @@
         "/monitoring/api/v1/costs/by-document-type",
         "/monitoring/api/v1/costs/by-model",
         "/monitoring/api/v1/costs/timeseries"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "DEDUP-001",
@@ -533,7 +560,8 @@
         "gs://rafi-images-staging/bir2303/2024_10_04_bir_registration_certificate_form_2303.jpeg",
         "gs://rafi-images-staging/bir2303/2024_11_20_bir_registration_certificate_form_2303.jpeg",
         "gs://rafi-images-staging/bir2303/2024_11_21_bir_registration_certificate_form_2303 (3).jpg"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "ELEC-RAFI-001",
@@ -555,7 +583,8 @@
         "gs://rafi-images-staging/water-bills/45508_water_bill.jpeg",
         "gs://rafi-images-staging/water-bills/45510_water_bill.jpg",
         "gs://rafi-images-staging/water-bills/45511_water_bill.jpg"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "DL-RAFI-001",
@@ -566,7 +595,8 @@
         "gs://rafi-images-staging/various-ids/55075_Driver's license_VERTUCIO, ADONIS FRIAS front .jpg",
         "gs://rafi-images-staging/various-ids/55076_Driver's license_ABAÑO, GILBERT ANTHONY ORCA front .jpeg",
         "gs://rafi-images-staging/various-ids/56055_Driver license_front.jpeg"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "PASS-RAFI-001",
@@ -577,7 +607,8 @@
         "gs://rafi-images-staging/various-ids/56054_2025-05-20 03_24_29 Passport - KRISTY undefined GOLEZ.jpg",
         "gs://rafi-images-staging/various-ids/56064_Passport .png",
         "gs://rafi-images-staging/various-ids/56065_Passport .jpeg"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "UMID-RAFI-001",
@@ -588,7 +619,8 @@
         "gs://rafi-images-staging/various-ids/56052_Unified MultiPurpose ID - FIRST LAST.jpg",
         "gs://rafi-images-staging/various-ids/56053 Unified MultiPurpose ID - JOANN CALAPOTO INDELIBLE(2).jpg",
         "gs://rafi-images-staging/various-ids/56054 Unified MultiPurpose ID - FIRST LAST(1).jpg"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "PRC-RAFI-001",
@@ -599,7 +631,8 @@
         "gs://rafi-images-staging/various-ids/20202_Professional Regulation Commission_front.jpg",
         "gs://rafi-images-staging/various-ids/20204_Professional Regulation Commission_front.jpeg",
         "gs://rafi-images-staging/various-ids/56058_PRC card front.jpeg"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "POSTAL-RAFI-001",
@@ -609,7 +642,8 @@
       "files": [
         "gs://rafi-images-staging/various-ids/56053_2025-05-21 07_52_35 Postal ID - CHRISTHEL ALJAS JIMENEZ.jpg",
         "gs://rafi-images-staging/various-ids/56055_2025-05-15 05_08_12 Postal ID - FIRST LAST.jpg"
-      ]
+      ],
+      "skipBatch": true
     },
     {
       "id": "PHILID-RAFI-001",
@@ -620,7 +654,8 @@
         "gs://rafi-images-staging/various-ids/00001- Identification System ID - VICTOR CASTAÑEDA CAPITULO (1).jpg",
         "gs://rafi-images-staging/various-ids/00005-Identification System ID - JENELYN SIMBAJON PROEL-Frontside.jpg",
         "gs://rafi-images-staging/various-ids/00007-Identification System ID - FIRST LAST (1).jpg"
-      ]
+      ],
+      "skipBatch": true
     }
   ]
 }

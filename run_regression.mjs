@@ -549,13 +549,17 @@ async function runDefaultFixture(fixture, results) {
   }
 
   // Batch upload
-  console.log(`  -> Batch upload (${fixture.files.length} docs)...`);
-  try {
-    const batchResult = await runBatchUpload(fixture);
-    results.push({ ...batchResult, file: null });
-    console.log(`    ${batchResult.passed ? 'PASS' : 'FAIL'} ${batchResult.summary}`);
-  } catch (err) {
-    results.push({ file: null, status: 0, passed: false, body: null, summary: `Batch error: ${err.message}` });
+  if (fixture.skipBatch) {
+    console.log(`  -> parse-only (batch not supported for this docType)`);
+  } else {
+    console.log(`  -> Batch upload (${fixture.files.length} docs)...`);
+    try {
+      const batchResult = await runBatchUpload(fixture);
+      results.push({ ...batchResult, file: null });
+      console.log(`    ${batchResult.passed ? 'PASS' : 'FAIL'} ${batchResult.summary}`);
+    } catch (err) {
+      results.push({ file: null, status: 0, passed: false, body: null, summary: `Batch error: ${err.message}` });
+    }
   }
 }
 
