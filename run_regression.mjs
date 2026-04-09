@@ -575,8 +575,9 @@ async function runFraudFixture(fixture, results) {
       const result = await runSingleParse(fixture, file, extra);
       if (result.passed && result.body) {
         const errors = [];
-        if (result.body.fraudScore === undefined && result.body.fraudScore === null) {
-          errors.push('fraudScore not present');
+        const warnings = [];
+        if (typeof result.body.fraudScore !== 'number') {
+          errors.push('fraudScore not a number');
         }
         // For RAFI false-positive validation: assert fraudScore < 30
         if (fixture.id.startsWith('FRAUD-ID') || fixture.id.startsWith('FRAUD-DL') || fixture.id.startsWith('FRAUD-PS')) {
@@ -584,14 +585,23 @@ async function runFraudFixture(fixture, results) {
             errors.push(`fraudScore=${result.body.fraudScore} >= 30 (false positive)`);
           }
         }
-        // For electricity: assert no mathematical_inconsistency
-        if (fixture.id.startsWith('FRAUD-ELEC') && Array.isArray(result.body.fraudCheckFindings)) {
-          const mathInconsistency = result.body.fraudCheckFindings.some(
-            f => typeof f === 'string' ? f.includes('mathematical_inconsistency') :
-              f.type === 'mathematical_inconsistency'
-          );
-          if (mathInconsistency) errors.push('mathematical_inconsistency found in fraudCheckFindings');
+        // For electricity fraud: assert summaryOCR populated, warn if no findings
+        if (fixture.documentType === 'ElectricUtilityBillingStatement') {
+          if (!Array.isArray(result.body.summaryOCR) || result.body.summaryOCR.length === 0) {
+            errors.push('summaryOCR missing or empty');
+          }
+          if (!Array.isArray(result.body.fraudCheckFindings) || result.body.fraudCheckFindings.length === 0) {
+            warnings.push('WARN: fraudCheckFindings empty (legitimate bill may have no findings)');
+          }
+          if (Array.isArray(result.body.fraudCheckFindings)) {
+            const mathInconsistency = result.body.fraudCheckFindings.some(
+              f => typeof f === 'string' ? f.includes('mathematical_inconsistency') :
+                f.type === 'mathematical_inconsistency'
+            );
+            if (mathInconsistency) errors.push('mathematical_inconsistency found in fraudCheckFindings');
+          }
         }
+        if (warnings.length) console.log(`    ${warnings.join('; ')}`);
         if (errors.length) {
           result.passed = false;
           result.summary = `HTTP 200 fraud validation failed: ${errors.join(', ')}`;

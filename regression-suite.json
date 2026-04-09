@@ -419,9 +419,9 @@
         "fraud_detection": true,
         "use_cache": false
       },
-      "description": "Meralco electric bill — fraud detection (manipulated bill)",
+      "description": "Meralco electric bill — fraud detection (GIMP metadata fraud)",
       "files": [
-        "gs://verifyiq-internal-testing/QA/Electric/Fraud_Meralco_Bill.png"
+        "gs://verifyiq-internal-testing/QA/Gcash/HP-SUP-03.JPG"
       ]
     },
     {
