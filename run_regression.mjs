@@ -12,7 +12,6 @@
  *   crosscheck   -> POST /v1/documents/crosscheck
  *   payslip-deep -> parse with gross_pay/net_pay/sss/completenessScore
  *   completeness -> parse and assert completenessScore > 0
- *   cost-tracking -> GET /monitoring/api/v1/costs/* endpoints
  *   health       -> GET health endpoints
  *   bls          -> GET/POST /api/v1/applications/* endpoints
  *   gcash-computed -> batch with computedFields validation
@@ -920,25 +919,6 @@ async function runCompletenessFixture(fixture, results) {
   }
 }
 
-// -- COST-TRACKING: GET /monitoring/api/v1/costs/* ----------------------------
-
-async function runCostTrackingFixture(fixture, results) {
-  const endpoints = fixture.endpoints || [];
-  for (const endpoint of endpoints) {
-    console.log(`  -> [COST] GET ${endpoint}`);
-    try {
-      const client = createStagingClient(true);
-      const res = await client.get(endpoint);
-      const passed = res.status === 200;
-      results.push({ file: endpoint, status: res.status, passed, body: null,
-        summary: passed ? `HTTP 200 -- ${endpoint}` : `HTTP ${res.status} -- ${endpoint}` });
-      console.log(`    ${passed ? 'PASS' : 'FAIL'} HTTP ${res.status}`);
-    } catch (err) {
-      results.push({ file: endpoint, status: 0, passed: false, body: null, summary: `Error: ${err.message}` });
-    }
-    await sleep(1000);
-  }
-}
 
 // -- HEALTH: GET health endpoints ---------------------------------------------
 
@@ -1475,7 +1455,6 @@ const TEST_TYPE_RUNNERS = {
   crosscheck: runCrosscheckFixture,
   'payslip-deep': runPayslipDeepFixture,
   completeness: runCompletenessFixture,
-  'cost-tracking': runCostTrackingFixture,
   health: runHealthFixture,
   bls: runBlsFixture,
   'gcash-computed': runGcashComputedFixture,

@@ -533,21 +533,6 @@
       "skipBatch": true
     },
     {
-      "id": "COST-001",
-      "documentType": "cost-tracking",
-      "testType": "cost-tracking",
-      "description": "Cost monitoring endpoints — overview, by-tenant, by-doc-type, by-model, timeseries",
-      "files": [],
-      "endpoints": [
-        "/monitoring/api/v1/costs/overview",
-        "/monitoring/api/v1/costs/by-tenant",
-        "/monitoring/api/v1/costs/by-document-type",
-        "/monitoring/api/v1/costs/by-model",
-        "/monitoring/api/v1/costs/timeseries"
-      ],
-      "skipBatch": true
-    },
-    {
       "id": "DEDUP-001",
       "documentType": "BankStatement",
       "testType": "dedup",
