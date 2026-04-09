@@ -506,14 +506,19 @@
     },
     {
       "id": "CROSS-001",
-      "documentType": "crosscheck",
+      "documentType": "BankStatement",
       "testType": "crosscheck",
-      "description": "Cross-document validation — payslip + bank statement crosscheck",
+      "description": "Cross-document validation — batch upload PRIMARY BS + SUPPORTING payslip, then POST /api/v1/cross-validate",
       "files": [
-        "gs://verifyiq-internal-testing/QA/employment/Payslip/PS-002.png",
-        "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/BPI_eStatement_Dec 2025.pdf"
+        "gs://verifyiq-internal-testing/QA/Cross match/qa-test-data_Cross match_TC02a_BankStatement_BPI.pdf"
       ],
-      "skipBatch": true
+      "supportingFiles": [
+        {
+          "path": "gs://verifyiq-internal-testing/QA/Cross match/qa-test-data_Cross match_TC03a_Payslip_JRUA.pdf",
+          "documentType": "Payslip",
+          "documentClassification": "SUPPORTING"
+        }
+      ]
     },
     {
       "id": "BLS-001",
