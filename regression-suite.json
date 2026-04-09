@@ -666,6 +666,21 @@
       "files": [
         "gs://verifyiq-internal-testing/QA/Gcash/HP-BS-01_GCash_QA_91days.pdf"
       ]
+    },
+    {
+      "id": "DEDUP-GCASH-001",
+      "documentType": "BankStatement",
+      "testType": "dedup-gcash",
+      "description": "GCash dedup — same BPI statement 3x + supporting doc. Asserts totals not multiplied by 3",
+      "skipBatch": false,
+      "files": [
+        "gs://verifyiq-internal-testing/QA/Gcash/HP-BS-01_GCash_QA_91days.pdf",
+        "gs://verifyiq-internal-testing/QA/Gcash/HP-BS-01_GCash_QA_91days.pdf",
+        "gs://verifyiq-internal-testing/QA/Gcash/HP-BS-01_GCash_QA_91days.pdf"
+      ],
+      "supportingFiles": [
+        "gs://verifyiq-internal-testing/QA/Gcash/HP-SUP-03.JPG"
+      ]
     }
   ]
 }

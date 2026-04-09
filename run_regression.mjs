@@ -1046,6 +1046,124 @@ async function runGcashRulesFixture(fixture, results) {
   }
 }
 
+// -- DEDUP-GCASH: 3x same file + supporting doc, assert totals NOT tripled ----
+
+async function runDedupGcashFixture(fixture, results) {
+  if (!WEBHOOK_TOKEN_ID) {
+    results.push({ file: null, status: 0, passed: false, body: null, summary: 'SKIPPED -- no webhook token' });
+    return;
+  }
+
+  const gatewayDocType = GATEWAY_DOCTYPE_MAP[fixture.documentType] || fixture.documentType;
+  const documents = fixture.files.map(file => ({
+    documentId: randomUUID(), fileId: randomUUID(), documentClassification: 'PRIMARY',
+    documentType: gatewayDocType, filename: file.split('/').pop(), preSignedUrl: file,
+  }));
+
+  // Add supporting files as SECONDARY
+  if (fixture.supportingFiles) {
+    for (const file of fixture.supportingFiles) {
+      documents.push({
+        documentId: randomUUID(), fileId: randomUUID(), documentClassification: 'SECONDARY',
+        documentType: gatewayDocType, filename: file.split('/').pop(), preSignedUrl: file,
+      });
+    }
+  }
+
+  const webhookIapHeader = { Authorization: `Bearer ${getWebhookIapToken()}` };
+  const payload = {
+    payload: { publicUserId: `regression-${fixture.id}-${Date.now()}`, submissionId: randomUUID(), documents },
+    callbacks: {
+      documentResult: { url: `${WEBHOOK_SERVER_URL}/${WEBHOOK_TOKEN_ID}`, method: 'POST', headers: webhookIapHeader },
+      applicationResult: { url: `${WEBHOOK_SERVER_URL}/${WEBHOOK_TOKEN_ID}`, method: 'POST', headers: webhookIapHeader },
+    },
+  };
+
+  let baselineCount;
+  try { baselineCount = await getWebhookBaseline(); console.log(`    Webhook baseline: ${baselineCount}`); }
+  catch (err) { results.push({ file: null, status: 0, passed: false, body: null, summary: `Webhook baseline failed: ${err.message}` }); return; }
+
+  console.log(`  -> Batch upload (${documents.length} docs: ${fixture.files.length} PRIMARY + ${fixture.supportingFiles?.length || 0} SECONDARY)...`);
+  const client = createStagingClient(true);
+  let status, body;
+  try { const res = await client.post('/ai-gateway/batch-upload', payload); status = res.status; body = res.data; }
+  catch (err) { results.push({ file: null, status: 0, passed: false, body: null, summary: `POST error: ${err.message}` }); return; }
+
+  console.log(`    POST response: HTTP ${status}`);
+  if (status !== 200 || !body.applicationId) {
+    results.push({ file: null, status, passed: false, body, summary: `HTTP ${status} -- ${JSON.stringify(body).slice(0, 200)}` });
+    return;
+  }
+  console.log(`    HTTP 200, applicationId=${body.applicationId}`);
+
+  const expectedCallbacks = documents.length + 1;
+  let callbacks;
+  try {
+    console.log(`    Waiting for ${expectedCallbacks} callbacks (${documents.length} doc + 1 app)...`);
+    callbacks = await pollWebhookCallbacks(baselineCount, expectedCallbacks, body.applicationId);
+    console.log(`    Received ${callbacks.length} callbacks`);
+  } catch (err) { results.push({ file: null, status, passed: false, body, summary: `Polling: ${err.message}` }); return; }
+
+  // Decrypt all callbacks; find application callback and extract computedFields
+  let computedFields = null;
+  for (const cb of callbacks) {
+    const rawBody = cb.content ?? cb.body ?? JSON.stringify(cb);
+    let decrypted;
+    try { decrypted = await decryptCallback(rawBody); } catch { continue; }
+    if (decrypted.documentId) {
+      console.log(`    Document callback OK (docId=${decrypted.documentId}, status=${decrypted.status}, class=${decrypted.documentClassification})`);
+    } else {
+      console.log(`    Application callback (appId=${decrypted.applicationId}, status=${decrypted.status})`);
+      const bsData = decrypted.ocrResult?.computedFields?.BANK_STATEMENT?.data
+        ?? decrypted.computedFields?.BANK_STATEMENT?.data;
+      if (bsData) computedFields = bsData;
+    }
+  }
+
+  // Log all computedFields
+  console.log('    computedFields (BANK_STATEMENT):');
+  if (computedFields) {
+    for (const [k, v] of Object.entries(computedFields)) console.log(`      ${k}: ${v}`);
+  } else {
+    console.log('      (none found)');
+    results.push({ file: null, status, passed: false, body: null, summary: 'No computedFields in application callback' });
+    return;
+  }
+
+  // Assert dedup: totals must NOT be tripled
+  const assertions = [
+    { key: 'gs_totaldebit_bankstatement', expected: 11830.08, tripled: 35490.24 },
+    { key: 'gs_totalcredit_bankstatement', expected: 11655, tripled: 34965 },
+    { key: 'gs_inferredincome_bankstatement', expected: -175.08, tolerance: 0.01 },
+    { key: 'gs_90days_consec_bankstatement', expected: 1 },
+    { key: 'gs_180days_valid_bankstatement', expected: 1 },
+  ];
+
+  const errors = [];
+  for (const { key, expected, tripled, tolerance } of assertions) {
+    const actual = computedFields[key];
+    const tol = tolerance || 0.001;
+    const pass = typeof actual === 'number' && Math.abs(actual - expected) < tol;
+    const isTripled = tripled != null && typeof actual === 'number' && Math.abs(actual - tripled) < tol;
+
+    if (isTripled) {
+      console.log(`    FAIL ${key} === ${actual} (TRIPLED! expected ${expected}, got 3x)`);
+      errors.push(`${key}=${actual} (3x detected)`);
+    } else if (!pass) {
+      console.log(`    FAIL ${key} === ${JSON.stringify(actual)} (expected ${expected})`);
+      errors.push(`${key}=${JSON.stringify(actual)}`);
+    } else {
+      console.log(`    PASS ${key} === ${actual}`);
+    }
+  }
+
+  if (errors.length) {
+    results.push({ file: null, status, passed: false, body: null, summary: `Dedup assertion failed: ${errors.join(', ')}` });
+  } else {
+    results.push({ file: null, status, passed: true, body: null, summary: 'HTTP 200 -- dedup validated, totals not tripled' });
+  }
+}
+
 // -- DEDUP: same file 3x in one batch -----------------------------------------
 
 async function runDedupFixture(fixture, results) {
@@ -1243,6 +1361,7 @@ const TEST_TYPE_RUNNERS = {
   bls: runBlsFixture,
   'gcash-computed': runGcashComputedFixture,
   'gcash-rules': runGcashRulesFixture,
+  'dedup-gcash': runDedupGcashFixture,
   dedup: runDedupFixture,
 };
 
