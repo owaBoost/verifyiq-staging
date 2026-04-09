@@ -962,6 +962,90 @@ async function runGcashComputedFixture(fixture, results) {
   console.log(`    PASS ${results.at(-1).summary}`);
 }
 
+// -- GCASH-RULES: batch upload + assert 90/180-day computedFields -------------
+
+async function runGcashRulesFixture(fixture, results) {
+  if (!WEBHOOK_TOKEN_ID) {
+    results.push({ file: null, status: 0, passed: false, body: null, summary: 'SKIPPED -- no webhook token' });
+    return;
+  }
+
+  const gatewayDocType = GATEWAY_DOCTYPE_MAP[fixture.documentType] || fixture.documentType;
+  const documents = fixture.files.map(file => ({
+    documentId: randomUUID(), fileId: randomUUID(), documentClassification: 'PRIMARY',
+    documentType: gatewayDocType, filename: file.split('/').pop(), preSignedUrl: file,
+  }));
+
+  const webhookIapHeader = { Authorization: `Bearer ${getWebhookIapToken()}` };
+  const payload = {
+    payload: { publicUserId: `regression-${fixture.id}-${Date.now()}`, submissionId: randomUUID(), documents },
+    callbacks: {
+      documentResult: { url: `${WEBHOOK_SERVER_URL}/${WEBHOOK_TOKEN_ID}`, method: 'POST', headers: webhookIapHeader },
+      applicationResult: { url: `${WEBHOOK_SERVER_URL}/${WEBHOOK_TOKEN_ID}`, method: 'POST', headers: webhookIapHeader },
+    },
+  };
+
+  let baselineCount;
+  try { baselineCount = await getWebhookBaseline(); console.log(`    Webhook baseline: ${baselineCount}`); }
+  catch (err) { results.push({ file: null, status: 0, passed: false, body: null, summary: `Webhook baseline failed: ${err.message}` }); return; }
+
+  console.log(`  -> Batch upload (${fixture.files.length} docs)...`);
+  const client = createStagingClient(true);
+  let status, body;
+  try { const res = await client.post('/ai-gateway/batch-upload', payload); status = res.status; body = res.data; }
+  catch (err) { results.push({ file: null, status: 0, passed: false, body: null, summary: `POST error: ${err.message}` }); return; }
+
+  console.log(`    POST response: HTTP ${status}`);
+  if (status !== 200 || !body.applicationId) {
+    results.push({ file: null, status, passed: false, body, summary: `HTTP ${status} -- ${JSON.stringify(body).slice(0, 200)}` });
+    return;
+  }
+  console.log(`    HTTP 200, applicationId=${body.applicationId}`);
+
+  const expectedCallbacks = documents.length + 1;
+  let callbacks;
+  try {
+    console.log(`    Waiting for ${expectedCallbacks} callbacks (${documents.length} doc + 1 app)...`);
+    callbacks = await pollWebhookCallbacks(baselineCount, expectedCallbacks, body.applicationId);
+    console.log(`    Received ${callbacks.length} callbacks`);
+  } catch (err) { results.push({ file: null, status, passed: false, body, summary: `Polling: ${err.message}` }); return; }
+
+  // Find application callback and extract computedFields
+  let computedFields = null;
+  for (const cb of callbacks) {
+    const rawBody = cb.content ?? cb.body ?? JSON.stringify(cb);
+    let decrypted;
+    try { decrypted = await decryptCallback(rawBody); } catch { continue; }
+    if (!decrypted.documentId && decrypted.ocrResult?.computedFields?.BANK_STATEMENT?.data) {
+      computedFields = decrypted.ocrResult.computedFields.BANK_STATEMENT.data;
+    }
+  }
+
+  // Log all computedFields
+  console.log('    computedFields (BANK_STATEMENT):');
+  if (computedFields) {
+    for (const [k, v] of Object.entries(computedFields)) console.log(`      ${k}: ${v}`);
+  } else {
+    console.log('      (none found)');
+  }
+
+  // Assert required fields
+  const errors = [];
+  const val90 = computedFields?.gs_90days_consec_bankstatement;
+  if (val90 === 1) { console.log(`    PASS gs_90days_consec_bankstatement === 1`); }
+  else { console.log(`    FAIL gs_90days_consec_bankstatement === 1 (actual: ${JSON.stringify(val90)})`); errors.push(`gs_90days_consec=${JSON.stringify(val90)}`); }
+
+  const val180 = computedFields?.gs_180days_valid_bankstatement;
+  if (val180 === 1) { console.log(`    PASS gs_180days_valid_bankstatement === 1`); }
+  else { console.log(`    FAIL gs_180days_valid_bankstatement === 1 (actual: ${JSON.stringify(val180)})`); errors.push(`gs_180days_valid=${JSON.stringify(val180)}`); }
+
+  if (errors.length) {
+    results.push({ file: null, status, passed: false, body: null, summary: `computedFields assertion failed: ${errors.join(', ')}` });
+  } else {
+    results.push({ file: null, status, passed: true, body: null, summary: 'HTTP 200 -- gs_90days_consec=1, gs_180days_valid=1 validated' });
+  }
+}
+
 // -- DEDUP: same file 3x in one batch -----------------------------------------
 
 async function runDedupFixture(fixture, results) {
@@ -1158,6 +1242,7 @@ const TEST_TYPE_RUNNERS = {
   health: runHealthFixture,
   bls: runBlsFixture,
   'gcash-computed': runGcashComputedFixture,
+  'gcash-rules': runGcashRulesFixture,
   dedup: runDedupFixture,
 };
 

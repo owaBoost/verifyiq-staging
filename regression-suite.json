@@ -656,6 +656,16 @@
         "gs://rafi-images-staging/various-ids/00007-Identification System ID - FIRST LAST (1).jpg"
       ],
       "skipBatch": true
+    },
+    {
+      "id": "GCASH-90180-001",
+      "documentType": "BankStatement",
+      "testType": "gcash-rules",
+      "description": "91-day GCash statement — asserts gs_90days_consec=1 and gs_180days_valid=1",
+      "skipBatch": false,
+      "files": [
+        "gs://verifyiq-internal-testing/QA/Gcash/HP-BS-01_GCash_QA_91days.pdf"
+      ]
     }
   ]
 }
