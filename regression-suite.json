@@ -154,8 +154,7 @@
         "gs://verifyiq-internal-testing/QA/UB bank statement/james-test-data_bankstatements_UB_files_UB-014.pdf"
       ]
     },
-
-{
+    {
       "id": "PS-001",
       "documentType": "Payslip",
       "testType": "default",
@@ -178,7 +177,10 @@
       "id": "PS-FRAUD-001",
       "documentType": "Payslip",
       "testType": "fraud",
-      "pipeline": {"fraud_detection": true, "use_cache": false},
+      "pipeline": {
+        "fraud_detection": true,
+        "use_cache": false
+      },
       "description": "Payslip fraud detection — undertime fraud test document",
       "files": [
         "gs://verifyiq-internal-testing/QA/Payslip Miscalc Test/undertime_fraud_test.pdf"
@@ -216,14 +218,13 @@
         "gs://verifyiq-internal-testing/QA/employment/CertificateOfEmployment/CertificateOfEmployment_3_2025-12-15_COE.pdf"
       ]
     },
-
-{
+    {
       "id": "PHILID-001",
       "documentType": "PhilippineNationalID",
       "testType": "default",
       "description": "Philippine National ID — default parse",
       "files": [
-        "gs://verifyiq-internal-testing/QA/identity_kyc/PhilippineNationalID/National ID_00001- Identification System ID - VICTOR CASTA\u00d1EDA CAPITULO.jpg",
+        "gs://verifyiq-internal-testing/QA/identity_kyc/PhilippineNationalID/National ID_00001- Identification System ID - VICTOR CASTAÑEDA CAPITULO.jpg",
         "gs://verifyiq-internal-testing/QA/identity_kyc/PhilippineNationalID/55640_National ID-V2.png"
       ]
     },
@@ -231,7 +232,10 @@
       "id": "PHILID-FRAUD-TAMPERED-001",
       "documentType": "PhilippineNationalID",
       "testType": "fraud",
-      "pipeline": {"fraud_detection": true, "use_cache": false},
+      "pipeline": {
+        "fraud_detection": true,
+        "use_cache": false
+      },
       "description": "Philippine National ID — tampered QR fraud detection",
       "files": [
         "gs://verifyiq-internal-testing/QA/identity_kyc/PhilippineNationalID/QA_PhilID_philid_tampered_qr.png"
@@ -241,7 +245,10 @@
       "id": "PHILID-FRAUD-DAMAGED-001",
       "documentType": "PhilippineNationalID",
       "testType": "fraud",
-      "pipeline": {"fraud_detection": true, "use_cache": false},
+      "pipeline": {
+        "fraud_detection": true,
+        "use_cache": false
+      },
       "description": "Philippine National ID — damaged QR fraud detection",
       "files": [
         "gs://verifyiq-internal-testing/QA/identity_kyc/PhilippineNationalID/QA_PhilID_philid_damaged_qr.png"
@@ -260,7 +267,10 @@
       "id": "DL-FRAUD-FP-001",
       "documentType": "DriversLicense",
       "testType": "fraud",
-      "pipeline": {"fraud_detection": true, "use_cache": false},
+      "pipeline": {
+        "fraud_detection": true,
+        "use_cache": false
+      },
       "description": "Driver's License — false positive fraud check (expect fraudScore < 30)",
       "files": [
         "gs://verifyiq-internal-testing/QA/Drivers False Positive/56057_2024-11-25 02_29_10 Driver_s License - RAMILYN JOY MAGBOO MIA.jpg",
@@ -281,7 +291,10 @@
       "id": "PASS-FRAUD-FP-001",
       "documentType": "Passport",
       "testType": "fraud",
-      "pipeline": {"fraud_detection": true, "use_cache": false},
+      "pipeline": {
+        "fraud_detection": true,
+        "use_cache": false
+      },
       "description": "Passport — false positive fraud check (expect fraudScore < 30)",
       "files": [
         "gs://verifyiq-internal-testing/QA/Passport false positive/56055_ Passport - MARLON  RAQUEL.jpg",
@@ -370,8 +383,7 @@
         "gs://verifyiq-internal-testing/QA/identity_kyc/VotersID/VotersID.jpg"
       ]
     },
-
-{
+    {
       "id": "ELEC-001",
       "documentType": "ElectricUtilityBillingStatement",
       "testType": "default",
@@ -384,7 +396,10 @@
       "id": "ELEC-FRAUD-001",
       "documentType": "ElectricUtilityBillingStatement",
       "testType": "fraud",
-      "pipeline": {"fraud_detection": true, "use_cache": false},
+      "pipeline": {
+        "fraud_detection": true,
+        "use_cache": false
+      },
       "description": "Meralco electric bill — fraud detection (manipulated bill)",
       "files": [
         "gs://verifyiq-internal-testing/QA/Electric/Fraud_Meralco_Bill.png"
@@ -399,8 +414,7 @@
         "gs://verifyiq-internal-testing/QA/PLDTTelcoBill/PLDTTelcoBill.pdf"
       ]
     },
-
-{
+    {
       "id": "BIR-001",
       "documentType": "BIRForm2303",
       "testType": "default",
@@ -413,7 +427,10 @@
       "id": "BIR-FRAUD-001",
       "documentType": "BIRForm2303",
       "testType": "fraud",
-      "pipeline": {"fraud_detection": true, "use_cache": false},
+      "pipeline": {
+        "fraud_detection": true,
+        "use_cache": false
+      },
       "description": "BIR Form 2303 — manipulated document fraud detection",
       "files": [
         "gs://verifyiq-internal-testing/QA/BIR 2303/BIR_Form_2303_manipulated.jpeg"
@@ -428,8 +445,7 @@
         "gs://verifyiq-internal-testing/QA/DTI/DTIRegistrationCertificate.png"
       ]
     },
-
-{
+    {
       "id": "HEALTH-001",
       "documentType": "health",
       "testType": "health",
@@ -456,7 +472,9 @@
       "id": "CACHE-001",
       "documentType": "BankStatement",
       "testType": "cache",
-      "pipeline": {"use_cache": true},
+      "pipeline": {
+        "use_cache": true
+      },
       "description": "Cache hit validation — parse same doc twice, assert fromCache",
       "files": [
         "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/BDO_BankStatement.png"
@@ -504,6 +522,104 @@
       "description": "Deduplication — same file 3x in one batch, assert no tripling",
       "files": [
         "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/BDO_BankStatement.png"
+      ]
+    },
+    {
+      "id": "BIR-RAFI-001",
+      "documentType": "BIRForm2303",
+      "testType": "default",
+      "description": "BIR Form 2303 — rafi staging batch, 3 high-quality samples",
+      "files": [
+        "gs://rafi-images-staging/bir2303/2024_10_04_bir_registration_certificate_form_2303.jpeg",
+        "gs://rafi-images-staging/bir2303/2024_11_20_bir_registration_certificate_form_2303.jpeg",
+        "gs://rafi-images-staging/bir2303/2024_11_21_bir_registration_certificate_form_2303 (3).jpg"
+      ]
+    },
+    {
+      "id": "ELEC-RAFI-001",
+      "documentType": "ElectricUtilityBillingStatement",
+      "testType": "default",
+      "description": "Meralco electric bill — rafi staging batch, 3 high-quality samples",
+      "files": [
+        "gs://rafi-images-staging/electricity-bills/55557_MERALCO_BILL_005.jpeg",
+        "gs://rafi-images-staging/electricity-bills/55567_Meralco E-bill-V7.png",
+        "gs://rafi-images-staging/electricity-bills/55577_MERALCO_BILL_V7.jpg"
+      ]
+    },
+    {
+      "id": "WATER-RAFI-001",
+      "documentType": "WaterUtilityBillingStatement",
+      "testType": "default",
+      "description": "Water utility bill — rafi staging batch, 3 high-quality samples",
+      "files": [
+        "gs://rafi-images-staging/water-bills/45508_water_bill.jpeg",
+        "gs://rafi-images-staging/water-bills/45510_water_bill.jpg",
+        "gs://rafi-images-staging/water-bills/45511_water_bill.jpg"
+      ]
+    },
+    {
+      "id": "DL-RAFI-001",
+      "documentType": "DriversLicense",
+      "testType": "default",
+      "description": "Driver's license — rafi staging various-ids, 3 high-quality samples",
+      "files": [
+        "gs://rafi-images-staging/various-ids/55075_Driver's license_VERTUCIO, ADONIS FRIAS front .jpg",
+        "gs://rafi-images-staging/various-ids/55076_Driver's license_ABAÑO, GILBERT ANTHONY ORCA front .jpeg",
+        "gs://rafi-images-staging/various-ids/56055_Driver license_front.jpeg"
+      ]
+    },
+    {
+      "id": "PASS-RAFI-001",
+      "documentType": "Passport",
+      "testType": "default",
+      "description": "Passport — rafi staging various-ids, 3 high-quality samples",
+      "files": [
+        "gs://rafi-images-staging/various-ids/56054_2025-05-20 03_24_29 Passport - KRISTY undefined GOLEZ.jpg",
+        "gs://rafi-images-staging/various-ids/56064_Passport .png",
+        "gs://rafi-images-staging/various-ids/56065_Passport .jpeg"
+      ]
+    },
+    {
+      "id": "UMID-RAFI-001",
+      "documentType": "UMID",
+      "testType": "default",
+      "description": "UMID — rafi staging various-ids, 3 high-quality samples",
+      "files": [
+        "gs://rafi-images-staging/various-ids/56052_Unified MultiPurpose ID - FIRST LAST.jpg",
+        "gs://rafi-images-staging/various-ids/56053 Unified MultiPurpose ID - JOANN CALAPOTO INDELIBLE(2).jpg",
+        "gs://rafi-images-staging/various-ids/56054 Unified MultiPurpose ID - FIRST LAST(1).jpg"
+      ]
+    },
+    {
+      "id": "PRC-RAFI-001",
+      "documentType": "PRCID",
+      "testType": "default",
+      "description": "PRC ID — rafi staging various-ids, all 3 corrected samples",
+      "files": [
+        "gs://rafi-images-staging/various-ids/20202_Professional Regulation Commission_front.jpg",
+        "gs://rafi-images-staging/various-ids/20204_Professional Regulation Commission_front.jpeg",
+        "gs://rafi-images-staging/various-ids/56058_PRC card front.jpeg"
+      ]
+    },
+    {
+      "id": "POSTAL-RAFI-001",
+      "documentType": "PostalID",
+      "testType": "default",
+      "description": "Postal ID — rafi staging various-ids, 2 high-quality samples",
+      "files": [
+        "gs://rafi-images-staging/various-ids/56053_2025-05-21 07_52_35 Postal ID - CHRISTHEL ALJAS JIMENEZ.jpg",
+        "gs://rafi-images-staging/various-ids/56055_2025-05-15 05_08_12 Postal ID - FIRST LAST.jpg"
+      ]
+    },
+    {
+      "id": "PHILID-RAFI-001",
+      "documentType": "PhilippineNationalID",
+      "testType": "default",
+      "description": "Philippine National ID — rafi staging various-ids, 3 correctly classified samples",
+      "files": [
+        "gs://rafi-images-staging/various-ids/00001- Identification System ID - VICTOR CASTAÑEDA CAPITULO (1).jpg",
+        "gs://rafi-images-staging/various-ids/00005-Identification System ID - JENELYN SIMBAJON PROEL-Frontside.jpg",
+        "gs://rafi-images-staging/various-ids/00007-Identification System ID - FIRST LAST (1).jpg"
       ]
     }
   ]
