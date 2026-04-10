@@ -297,6 +297,22 @@
       "skipBatch": true
     },
     {
+      "id": "PASS-FRAUD-TAMPERED-001",
+      "documentType": "Passport",
+      "testType": "fraud",
+      "pipeline": {
+        "fraud_detection": true,
+        "use_cache": false
+      },
+      "description": "Passport — tampered document (Marlon Raquel). Expect fraudScore > 20 + CRITICAL finding. Passport number intentionally masked by white blocks.",
+      "expectFraud": true,
+      "suppressWarnings": ["passport_number"],
+      "files": [
+        "gs://verifyiq-internal-testing/QA/Passport false positive/56055_ Passport - MARLON  RAQUEL.jpg"
+      ],
+      "skipBatch": true
+    },
+    {
       "id": "PASS-FRAUD-FP-001",
       "documentType": "Passport",
       "testType": "fraud",
@@ -304,9 +320,9 @@
         "fraud_detection": true,
         "use_cache": false
       },
-      "description": "Passport — false positive fraud check (expect fraudScore < 30)",
+      "description": "Passport — false positive check. Legitimate passports should NOT be flagged. Expect fraudScore < 20, no CRITICAL findings.",
+      "expectFraud": false,
       "files": [
-        "gs://verifyiq-internal-testing/QA/Passport false positive/56055_ Passport - MARLON  RAQUEL.jpg",
         "gs://verifyiq-internal-testing/QA/Passport false positive/56070_ Passport - ROLANDO III AMORES.jpg",
         "gs://verifyiq-internal-testing/QA/Passport false positive/56073_Passport - MATA MICHELLE DE.jpg"
       ],

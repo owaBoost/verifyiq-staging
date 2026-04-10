@@ -556,6 +556,10 @@ async function runSingleParse(fixture, file, extraPayload = {}) {
   if (fixture.skipBatch) {
     fieldWarnings = fieldWarnings.filter(w => !w.includes('transactionsOCR is empty array'));
   }
+  // Per-fixture warning suppression (substring match)
+  if (Array.isArray(fixture.suppressWarnings) && fixture.suppressWarnings.length) {
+    fieldWarnings = fieldWarnings.filter(w => !fixture.suppressWarnings.some(p => w.includes(p)));
+  }
 
   if (fieldErrors.length) {
     return { file, status: res.status, passed: false, body: res.data, elapsed, warnings: fieldWarnings,
@@ -629,6 +633,26 @@ async function runFraudFixture(fixture, results) {
         if (fixture.id.startsWith('FRAUD-ID') || fixture.id.startsWith('FRAUD-DL') || fixture.id.startsWith('FRAUD-PS')) {
           if (typeof result.body.fraudScore === 'number' && result.body.fraudScore >= 30) {
             errors.push(`fraudScore=${result.body.fraudScore} >= 30 (false positive)`);
+          }
+        }
+        // Positive vs negative fraud detection based on fixture.expectFraud flag.
+        // Note: API returns findings as { type, score, description } without an explicit
+        // severity field, so "CRITICAL finding" is defined as any entry in fraudCheckFindings.
+        if (fixture.expectFraud === true) {
+          if (typeof result.body.fraudScore === 'number' && result.body.fraudScore <= 20) {
+            errors.push(`fraudScore=${result.body.fraudScore} <= 20 (expected fraud detected)`);
+          }
+          const findings = result.body.fraudCheckFindings;
+          if (!Array.isArray(findings) || findings.length === 0) {
+            errors.push('fraudCheckFindings empty (expected at least 1 CRITICAL finding)');
+          }
+        } else if (fixture.expectFraud === false) {
+          if (typeof result.body.fraudScore === 'number' && result.body.fraudScore >= 20) {
+            errors.push(`fraudScore=${result.body.fraudScore} >= 20 (false positive — legitimate document flagged)`);
+          }
+          const findings = result.body.fraudCheckFindings;
+          if (Array.isArray(findings) && findings.length > 0) {
+            warnings.push(`WARN: ${findings.length} fraudCheckFinding(s) present on legitimate document`);
           }
         }
         // For electricity fraud: assert summaryOCR populated, warn if no findings
