@@ -74,7 +74,7 @@ const RESPONSE_VALIDATORS = {
   BIRForm2303: (body) => {
     const r = requireSummaryOCR(body); if (r.errors.length) return r;
     const ocr = body.summaryOCR[0] || {};
-    const w = softCheck(ocr, 'tin_number', 'registration_number', 'TIN/registration number');
+    const w = softCheck(ocr, 'tin', null, 'TIN');
     if (w) r.warnings.push(w);
     return r;
   },
@@ -125,9 +125,9 @@ const RESPONSE_VALIDATORS = {
     const r = requireSummaryOCR(body); if (r.errors.length) return r;
     const ocr = body.summaryOCR[0] || {};
     if (!ocr.gross_pay && !ocr.net_pay) r.errors.push('missing both gross_pay and net_pay in summaryOCR');
-    const w1 = softCheck(ocr, 'employer_name', 'company_name', 'employer/company name');
+    const w1 = softCheck(ocr, 'company_name', 'employer_name', 'company/employer name');
     if (w1) r.warnings.push(w1);
-    const w2 = softCheck(ocr, 'net_pay_amount', 'net_pay', 'net pay as number');
+    const w2 = softCheck(ocr, 'employee_name', null, 'employee_name');
     if (w2) r.warnings.push(w2);
     return r;
   },
@@ -136,7 +136,7 @@ const RESPONSE_VALIDATORS = {
     const ocr = body.summaryOCR[0] || {};
     const w1 = softCheck(ocr, 'full_name', 'last_name', 'name');
     if (w1) r.warnings.push(w1);
-    const w2 = softCheck(ocr, 'clearance_number', 'control_number', 'clearance/control number');
+    const w2 = softCheck(ocr, 'nbi_id_number', null, 'nbi_id_number');
     if (w2) r.warnings.push(w2);
     return r;
   },
@@ -154,7 +154,7 @@ const RESPONSE_VALIDATORS = {
     const ocr = body.summaryOCR[0] || {};
     const w1 = softCheck(ocr, 'business_name', null, 'business_name');
     if (w1) r.warnings.push(w1);
-    const w2 = softCheck(ocr, 'registration_number', 'dti_number', 'registration/DTI number');
+    const w2 = softCheck(ocr, 'business_registration_number', null, 'business_registration_number');
     if (w2) r.warnings.push(w2);
     return r;
   },
@@ -164,7 +164,8 @@ const RESPONSE_VALIDATORS = {
     const errors = [];
     const warnings = [];
     if (!hasSummary && !hasTxns) errors.push('missing both summaryOCR and transactionsOCR');
-    if (body.documentType !== 'GcashTransactionHistory') warnings.push(`WARN: documentType="${body.documentType}", expected GcashTransactionHistory`);
+    const ocrDocType = body.summaryOCR?.[0]?.document_type;
+    if (ocrDocType && ocrDocType !== 'GcashTransactionHistory') warnings.push(`WARN: document_type="${ocrDocType}", expected GcashTransactionHistory`);
     return { errors, warnings };
   },
   CreditCardStatement: (body) => {
@@ -197,18 +198,18 @@ const RESPONSE_VALIDATORS = {
   UMID: (body) => {
     const r = requireSummaryOCR(body); if (r.errors.length) return r;
     const ocr = body.summaryOCR[0] || {};
-    const w1 = softCheck(ocr, 'id_number', 'crn', 'ID number/CRN');
+    const w1 = softCheck(ocr, 'crn_id_number', null, 'crn_id_number');
     if (w1) r.warnings.push(w1);
-    const w2 = softCheck(ocr, 'full_name', 'last_name', 'name');
+    const w2 = softCheck(ocr, 'first_name', 'last_name', 'name');
     if (w2) r.warnings.push(w2);
     return r;
   },
   SSSID: (body) => {
     const r = requireSummaryOCR(body); if (r.errors.length) return r;
     const ocr = body.summaryOCR[0] || {};
-    const w1 = softCheck(ocr, 'sss_number', 'id_number', 'SSS/ID number');
+    const w1 = softCheck(ocr, 'prn_id_number', null, 'prn_id_number');
     if (w1) r.warnings.push(w1);
-    const w2 = softCheck(ocr, 'full_name', 'last_name', 'name');
+    const w2 = softCheck(ocr, 'first_name', 'last_name', 'name');
     if (w2) r.warnings.push(w2);
     return r;
   },
@@ -224,45 +225,45 @@ const RESPONSE_VALIDATORS = {
   PRCID: (body) => {
     const r = requireSummaryOCR(body); if (r.errors.length) return r;
     const ocr = body.summaryOCR[0] || {};
-    const w1 = softCheck(ocr, 'license_number', 'prc_number', 'license/PRC number');
+    const w1 = softCheck(ocr, 'registration_number', null, 'registration_number');
     if (w1) r.warnings.push(w1);
-    const w2 = softCheck(ocr, 'full_name', 'last_name', 'name');
+    const w2 = softCheck(ocr, 'first_name', 'last_name', 'name');
     if (w2) r.warnings.push(w2);
     return r;
   },
   ACRICard: (body) => {
     const r = requireSummaryOCR(body); if (r.errors.length) return r;
     const ocr = body.summaryOCR[0] || {};
-    const w1 = softCheck(ocr, 'acr_number', 'id_number', 'ACR/ID number');
+    const w1 = softCheck(ocr, 'ssrn', null, 'ssrn');
     if (w1) r.warnings.push(w1);
-    const w2 = softCheck(ocr, 'full_name', 'last_name', 'name');
+    const w2 = softCheck(ocr, 'first_name', 'last_name', 'name');
     if (w2) r.warnings.push(w2);
     return r;
   },
   HDMFID: (body) => {
     const r = requireSummaryOCR(body); if (r.errors.length) return r;
     const ocr = body.summaryOCR[0] || {};
-    const w1 = softCheck(ocr, 'hdmf_number', 'id_number', 'HDMF/ID number');
+    const w1 = softCheck(ocr, 'mid_no', null, 'mid_no');
     if (w1) r.warnings.push(w1);
-    const w2 = softCheck(ocr, 'full_name', 'last_name', 'name');
+    const w2 = softCheck(ocr, 'first_name', 'last_name', 'name');
     if (w2) r.warnings.push(w2);
     return r;
   },
   PostalID: (body) => {
     const r = requireSummaryOCR(body); if (r.errors.length) return r;
     const ocr = body.summaryOCR[0] || {};
-    const w1 = softCheck(ocr, 'id_number', null, 'id_number');
+    const w1 = softCheck(ocr, 'prn_id_number', null, 'prn_id_number');
     if (w1) r.warnings.push(w1);
-    const w2 = softCheck(ocr, 'full_name', 'last_name', 'name');
+    const w2 = softCheck(ocr, 'first_name', 'last_name', 'name');
     if (w2) r.warnings.push(w2);
     return r;
   },
   VotersID: (body) => {
     const r = requireSummaryOCR(body); if (r.errors.length) return r;
     const ocr = body.summaryOCR[0] || {};
-    const w1 = softCheck(ocr, 'precinct_number', 'id_number', 'precinct/ID number');
+    const w1 = softCheck(ocr, 'vin', null, 'vin');
     if (w1) r.warnings.push(w1);
-    const w2 = softCheck(ocr, 'full_name', 'last_name', 'name');
+    const w2 = softCheck(ocr, 'first_name', 'last_name', 'name');
     if (w2) r.warnings.push(w2);
     return r;
   },
@@ -550,7 +551,11 @@ async function runSingleParse(fixture, file, extraPayload = {}) {
   const validation = validator ? validator(res.data) : { errors: [], warnings: [] };
   // Support old-style validators that return plain array (backwards compat)
   const fieldErrors = Array.isArray(validation) ? validation : validation.errors || [];
-  const fieldWarnings = Array.isArray(validation) ? [] : validation.warnings || [];
+  let fieldWarnings = Array.isArray(validation) ? [] : validation.warnings || [];
+  // Suppress "transactionsOCR is empty array" warning when skipBatch is true
+  if (fixture.skipBatch) {
+    fieldWarnings = fieldWarnings.filter(w => !w.includes('transactionsOCR is empty array'));
+  }
 
   if (fieldErrors.length) {
     return { file, status: res.status, passed: false, body: res.data, elapsed, warnings: fieldWarnings,
