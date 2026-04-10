@@ -12,20 +12,36 @@ let runListId = CLICKUP_LIST_ID;
 let existingTasks = {}; // name-prefix -> task id
 
 // -- ClickUp: per-run list creation -------------------------------------------
+//
+// Creates (or reuses) a dated list "Regression YYYY-MM-DD" in the same folder
+// as CLICKUP_LIST_ID. On subsequent runs the same day it finds and reuses the
+// existing dated list so task updates hit the correct list.
 
 export async function createClickUpList() {
   if (!clickupClient) return;
   const dateStr = new Date().toISOString().slice(0, 10);
   const listName = `Regression ${dateStr}`;
   try {
+    // Find the folder that contains the default CLICKUP_LIST_ID
     const { data: listData } = await clickupClient.get(`/list/${CLICKUP_LIST_ID}`);
     const folderId = listData.folder?.id;
     if (!folderId) { console.warn('  Could not find folder_id -- using default list'); return; }
+
+    // Check if today's dated list already exists in that folder
+    const { data: folderLists } = await clickupClient.get(`/folder/${folderId}/list`);
+    const existing = (folderLists.lists || []).find(l => l.name === listName);
+    if (existing) {
+      runListId = existing.id;
+      console.log(`  Reusing ClickUp list: ${listName} (${runListId})`);
+      return;
+    }
+
+    // Otherwise create a new list for today
     const { data: newList } = await clickupClient.post(`/folder/${folderId}/list`, { name: listName });
     runListId = newList.id;
     console.log(`  Created ClickUp list: ${listName} (${runListId})`);
   } catch (err) {
-    console.warn(`  Could not create run list: ${err.message} -- using default list`);
+    console.warn(`  Could not create/find run list: ${err.message} -- using default list`);
   }
 }
 
