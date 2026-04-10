@@ -268,6 +268,39 @@ const RESPONSE_VALIDATORS = {
   },
 };
 
+// -- Extract key OCR fields per docType for ClickUp descriptions -------------
+
+function extractKeyFields(body, documentType) {
+  if (!body?.summaryOCR?.[0]) return null;
+  const ocr = body.summaryOCR[0];
+  const f = { completenessScore: body.completenessScore ?? null };
+  switch (documentType) {
+    case 'BankStatement':
+      f.account_holder_name = ocr.account_holder_name || ocr.account_name || null;
+      f.account_number = ocr.account_number || null;
+      f.total_debits = ocr.total_debits ?? null;
+      f.total_credits = ocr.total_credits ?? null;
+      f.transactionsOCR_count = body.transactionsOCR?.length ?? 0;
+      break;
+    case 'Payslip':
+      f.employer_name = ocr.employer_name || ocr.company_name || null;
+      f.gross_pay = ocr.gross_pay ?? null;
+      f.net_pay = ocr.net_pay ?? ocr.net_pay_amount ?? null;
+      break;
+    case 'PhilippineNationalID': case 'DriversLicense': case 'Passport':
+      f.full_name = ocr.full_name || ocr.last_name || null;
+      f.id_number = ocr.id_number || ocr.pcn || ocr.license_number || ocr.passport_number || null;
+      break;
+    case 'ElectricUtilityBillingStatement':
+      f.account_name = ocr.account_name || ocr.customer_name || null;
+      f.account_number = ocr.account_number || null;
+      f.amount_due = ocr.amount_due ?? ocr.total_amount_due ?? null;
+      break;
+    default: break;
+  }
+  return f;
+}
+
 // -- Config -------------------------------------------------------------------
 
 const STAGING_URL = (process.env.STAGING_URL || 'https://ai-boostform-api-1019050071398.us-central1.run.app').replace(/\/$/, '');
@@ -278,7 +311,9 @@ const CLICKUP_FOLDER_ID = process.env.CLICKUP_FOLDER_ID || '90147720582';
 const CLICKUP_LIST_ID = process.env.CLICKUP_LIST_ID || '901415181079';
 const WEBHOOK_SERVER_URL = (process.env.WEBHOOK_SERVER_URL || '').trim().replace(/\/$/, '');
 const DECRYPT_URL = process.env.DECRYPT_URL || 'https://us-central1-boost-capital-staging.cloudfunctions.net/verifyiq-gateway/utils/decrypt';
+const SLACK_WEBHOOK_URL = (process.env.SLACK_WEBHOOK_URL || '').trim();
 let WEBHOOK_TOKEN_ID = null;
+let runListId = CLICKUP_LIST_ID;
 
 // -- CLI args -----------------------------------------------------------------
 
@@ -607,7 +642,10 @@ async function runFraudFixture(fixture, results) {
             if (mathInconsistency) errors.push('mathematical_inconsistency found in fraudCheckFindings');
           }
         }
-        if (warnings.length) console.log(`    ${warnings.join('; ')}`);
+        if (warnings.length) {
+          console.log(`    ${warnings.join('; ')}`);
+          result.warnings = [...(result.warnings || []), ...warnings];
+        }
         if (errors.length) {
           result.passed = false;
           result.summary = `HTTP 200 fraud validation failed: ${errors.join(', ')}`;
@@ -1384,6 +1422,7 @@ async function runBatchUpload(fixture) {
   } catch (err) { return { status, passed: false, body, summary: `Polling: ${err.message}` }; }
 
   const allErrors = [];
+  const callbackDetails = { documents: [], application: null };
   for (const cb of callbacks) {
     const rawBody = cb.content ?? cb.body ?? JSON.stringify(cb);
     let decrypted;
@@ -1394,26 +1433,51 @@ async function runBatchUpload(fixture) {
       const docErrors = validateDocumentCallback(decrypted, gatewayDocType);
       if (docErrors.length) allErrors.push(...docErrors);
       else console.log(`    Document callback OK (docId=${decrypted.documentId})`);
+      callbackDetails.documents.push({
+        documentId: decrypted.documentId, status: decrypted.status,
+        documentType: decrypted.documentType, documentClassification: decrypted.documentClassification,
+      });
     } else {
       const appErrors = validateApplicationCallback(decrypted);
       if (appErrors.length) allErrors.push(...appErrors);
       else console.log(`    Application callback OK (appId=${decrypted.applicationId})`);
+      callbackDetails.application = {
+        applicationId: decrypted.applicationId, status: decrypted.status,
+        computedFields: decrypted.ocrResult?.computedFields ?? decrypted.computedFields ?? null,
+        crossCheckFindings: decrypted.ocrResult?.crossCheckFindings ?? decrypted.crossCheckFindings ?? null,
+      };
     }
   }
 
-  if (allErrors.length) return { status, passed: false, body, summary: `Callback: ${allErrors.length} error(s): ${allErrors.join('; ')}` };
-  return { status, passed: true, body, summary: `HTTP 200 ACCEPTED -- ${callbacks.length} callbacks validated` };
+  if (allErrors.length) return { status, passed: false, body, callbackDetails, summary: `Callback: ${allErrors.length} error(s): ${allErrors.join('; ')}` };
+  return { status, passed: true, body, callbackDetails, summary: `HTTP 200 ACCEPTED -- ${callbacks.length} callbacks validated` };
 }
 
-// -- ClickUp reporting (uses fixed CLICKUP_LIST_ID) ---------------------------
+// -- ClickUp reporting --------------------------------------------------------
 
 let existingTasks = {}; // name-prefix -> task id
 
+async function createRunList() {
+  if (!clickup) return;
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const listName = `Regression ${dateStr}`;
+  try {
+    const { data: listData } = await clickup.get(`/list/${CLICKUP_LIST_ID}`);
+    const folderId = listData.folder?.id;
+    if (!folderId) { console.warn('  Could not find folder_id -- using default list'); return; }
+    const { data: newList } = await clickup.post(`/folder/${folderId}/list`, { name: listName });
+    runListId = newList.id;
+    console.log(`  Created ClickUp list: ${listName} (${runListId})`);
+  } catch (err) {
+    console.warn(`  Could not create run list: ${err.message} -- using default list`);
+  }
+}
+
 async function loadClickUpTasks() {
   if (!clickup) { console.warn('  CLICKUP_API_TOKEN not set -- disabled'); return; }
-  console.log(`  Using ClickUp list ${CLICKUP_LIST_ID}`);
+  console.log(`  Using ClickUp list ${runListId}`);
   try {
-    const { data } = await clickup.get(`/list/${CLICKUP_LIST_ID}/task?include_closed=true`);
+    const { data } = await clickup.get(`/list/${runListId}/task?include_closed=true`);
     for (const task of (data.tasks ?? [])) existingTasks[task.name] = task.id;
     console.log(`  Loaded ${Object.keys(existingTasks).length} existing tasks for dedup`);
   } catch (err) { console.warn(`  Could not load tasks: ${err.message}`); }
@@ -1425,19 +1489,109 @@ async function postClickUpResult(fixture, results) {
   const totalCount = results.length;
   const icon = passedCount === totalCount ? 'PASS' : passedCount > 0 ? 'PARTIAL' : 'FAIL';
   const status = passedCount === totalCount ? 'complete' : 'in progress';
-
-  const lines = results.map(r => {
-    const rIcon = r.passed ? 'PASS' : 'FAIL';
-    const fileName = r.file ? (r.file.startsWith('/') ? r.file : r.file.split('/').pop()) : 'batch';
-    return `${rIcon} **${fileName}** -- ${r.summary}`;
-  });
-
   const timestamp = new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
-  const description = [
-    `**Fixture:** ${fixture.id}`, `**Type:** ${fixture.testType || 'default'}`,
-    `**Document Type:** ${fixture.documentType}`, `**Last Run:** ${timestamp}`,
-    `**Results:**`, '', ...lines,
-  ].join('\n');
+
+  // Build rich description
+  const desc = [];
+  desc.push(`**Fixture:** ${fixture.id}`);
+  desc.push(`**Type:** ${fixture.testType || 'default'}`);
+  desc.push(`**Document Type:** ${fixture.documentType}`);
+  desc.push(`**Last Run:** ${timestamp}`);
+  desc.push('');
+
+  // PARSE section — results with a file path (excluding special entries)
+  const parseResults = results.filter(r => r.file && r.file !== 'cross-validate');
+  if (parseResults.length) {
+    desc.push('**PARSE:**');
+    for (const r of parseResults) {
+      const rIcon = r.passed ? '✅' : '❌';
+      const fn = r.file.startsWith('/') ? r.file : r.file.split('/').pop();
+      desc.push(`${rIcon} ${fn} — HTTP ${r.status} (${r.elapsed ?? '?'}ms)`);
+      const kf = extractKeyFields(r.body, fixture.documentType);
+      if (kf) {
+        for (const [k, v] of Object.entries(kf)) {
+          if (v != null) desc.push(`   ${k}: ${v}`);
+        }
+      }
+    }
+    desc.push('');
+  }
+
+  // BATCH — DOCUMENT CALLBACKS
+  const batchResult = results.find(r => !r.file && r.callbackDetails);
+  if (batchResult?.callbackDetails) {
+    const cbd = batchResult.callbackDetails;
+    if (cbd.documents.length) {
+      desc.push('**BATCH — DOCUMENT CALLBACKS:**');
+      for (const doc of cbd.documents) {
+        const dIcon = doc.status === 'COMPLETED' ? '✅' : '❌';
+        desc.push(`${dIcon} ${doc.documentId} callback`);
+        desc.push(`   status: ${doc.status}`);
+        if (doc.documentType) desc.push(`   documentType: ${doc.documentType}`);
+        if (doc.documentClassification) desc.push(`   documentClassification: ${doc.documentClassification}`);
+      }
+      desc.push('');
+    }
+    if (cbd.application) {
+      desc.push('**BATCH — APPLICATION CALLBACK:**');
+      const aIcon = cbd.application.status === 'COMPLETED' ? '✅' : '❌';
+      desc.push(`${aIcon} application callback`);
+      desc.push(`   status: ${cbd.application.status}`);
+      if (cbd.application.computedFields) {
+        desc.push('   computedFields:');
+        for (const [section, val] of Object.entries(cbd.application.computedFields)) {
+          const data = val?.data ?? val;
+          if (data && typeof data === 'object') {
+            const pairs = Object.entries(data).map(([k, v]) => `${k}=${v}`).join(', ');
+            desc.push(`     ${section}: ${pairs}`);
+          }
+        }
+      }
+      if (Array.isArray(cbd.application.crossCheckFindings) && cbd.application.crossCheckFindings.length) {
+        desc.push('   crossCheckFindings:');
+        for (const f of cbd.application.crossCheckFindings) {
+          const prim = Array.isArray(f.valuePrimary) ? f.valuePrimary.join(', ') : String(f.valuePrimary ?? '');
+          const sec = Array.isArray(f.valueSecondary) ? f.valueSecondary.join(', ') : String(f.valueSecondary ?? '');
+          desc.push(`     ${f.field}: primary=[${prim}] secondary=[${sec}] match=${f.match}`);
+        }
+      }
+      desc.push('');
+    }
+  }
+
+  // Legacy batch result (no callbackDetails — from non-default runners)
+  const legacyBatch = results.find(r => !r.file && !r.callbackDetails && r.summary);
+  if (legacyBatch && !batchResult) {
+    const bIcon = legacyBatch.passed ? '✅' : '❌';
+    desc.push(`**BATCH:** ${bIcon} ${legacyBatch.summary}`);
+    desc.push('');
+  }
+
+  // Special results (cross-validate)
+  const specialResults = results.filter(r => r.file === 'cross-validate');
+  for (const r of specialResults) {
+    const sIcon = r.passed ? '✅' : '❌';
+    desc.push(`**CROSS-VALIDATE:** ${sIcon} ${r.summary}`);
+    desc.push('');
+  }
+
+  // Warnings section
+  const allWarnings = results.flatMap(r => (r.warnings || []).map(w => w.replace(/^WARN:\s*/, '')));
+  desc.push('**⚠️ WARNINGS:**');
+  if (allWarnings.length) {
+    for (const w of allWarnings) desc.push(`- ${fixture.id}: ${w}`);
+  } else {
+    desc.push('No warnings');
+  }
+
+  const description = desc.join('\n');
+
+  // Comment summary (compact)
+  const commentLines = results.map(r => {
+    const rIcon = r.passed ? '✅' : '❌';
+    const fn = r.file ? (r.file.startsWith('/') ? r.file : r.file.split('/').pop()) : 'batch';
+    return `${rIcon} **${fn}** — ${r.summary}`;
+  });
 
   const taskNamePrefix = `${fixture.id} --`;
   const existingTaskId = Object.entries(existingTasks).find(([name]) => name.includes(taskNamePrefix))?.[1];
@@ -1448,16 +1602,57 @@ async function postClickUpResult(fixture, results) {
       await clickup.put(`/task/${existingTaskId}`, { name: taskName, description, status });
       console.log(`  ClickUp updated: ${existingTaskId}`);
       await clickup.post(`/task/${existingTaskId}/comment`, {
-        comment_text: `**${timestamp}** -- ${icon} ${passedCount}/${totalCount}\n\n${lines.join('\n')}`, notify_all: false,
+        comment_text: `**${timestamp}** — ${icon} ${passedCount}/${totalCount}\n\n${commentLines.join('\n')}`, notify_all: false,
       });
     } else {
-      const { data } = await clickup.post(`/list/${CLICKUP_LIST_ID}/task`, {
+      const { data } = await clickup.post(`/list/${runListId}/task`, {
         name: taskName, description, status,
       });
       existingTasks[taskName] = data.id;
       console.log(`  ClickUp created: ${data.url}`);
     }
   } catch (err) { console.warn(`  ClickUp failed for ${fixture.id}: ${err.message}`); }
+}
+
+// -- Slack summary ------------------------------------------------------------
+
+async function postSlackSummary(fixtureResults, totalPassed, totalFailed, allWarnings, startTime) {
+  if (!SLACK_WEBHOOK_URL) { console.warn('  SLACK_WEBHOOK_URL not set -- skipping Slack notification'); return; }
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const elapsed = Date.now() - startTime;
+  const minutes = Math.floor(elapsed / 60000);
+  const seconds = Math.floor((elapsed % 60000) / 1000);
+  const total = totalPassed + totalFailed;
+  const allPassed = totalFailed === 0;
+  const fixturePassed = fixtureResults.filter(fr => fr.passed).length;
+  const fixtureFailed = fixtureResults.filter(fr => !fr.passed).length;
+
+  const failedList = fixtureResults.filter(fr => !fr.passed)
+    .map(fr => `• ${fr.id}: ${fr.reason}`).join('\n') || 'None';
+  const warningList = allWarnings.length
+    ? allWarnings.map(w => `• ${w}`).join('\n')
+    : 'None';
+
+  const blocks = [
+    { type: 'header', text: { type: 'plain_text', text: `VerifyIQ Staging Regression — ${dateStr}` } },
+    {
+      type: 'section',
+      fields: [
+        { type: 'mrkdwn', text: `*Result:*\n${allPassed ? '✅ ALL PASSED' : '❌ FAILURES FOUND'}` },
+        { type: 'mrkdwn', text: `*Score:*\n${totalPassed}/${total} assertions` },
+        { type: 'mrkdwn', text: `*Fixtures:*\n${fixturePassed} passed, ${fixtureFailed} failed` },
+        { type: 'mrkdwn', text: `*Duration:*\n${minutes}m ${seconds}s` },
+      ],
+    },
+    { type: 'section', text: { type: 'mrkdwn', text: `*⚠️ Warnings (${allWarnings.length}):*\n${warningList}` } },
+    { type: 'section', text: { type: 'mrkdwn', text: `*❌ Failed Fixtures:*\n${failedList}` } },
+    { type: 'section', text: { type: 'mrkdwn', text: `*📋 ClickUp:* Regression ${dateStr}` } },
+  ];
+
+  try {
+    await axios.post(SLACK_WEBHOOK_URL, { blocks });
+    console.log('  Slack notification sent');
+  } catch (err) { console.warn(`  Slack notification failed: ${err.message}`); }
 }
 
 // -- Test type router ---------------------------------------------------------
@@ -1482,6 +1677,7 @@ const TEST_TYPE_RUNNERS = {
 // -- Main ---------------------------------------------------------------------
 
 async function main() {
+  const startTime = Date.now();
   const fixtures = loadFixtures();
 
   if (dryRun) {
@@ -1494,6 +1690,7 @@ async function main() {
   }
 
   await runHealthCheck();
+  await createRunList();
   await loadClickUpTasks();
 
   const batchEnvReady = GOOGLE_SA_KEY_FILE && WEBHOOK_SERVER_URL;
@@ -1505,6 +1702,8 @@ async function main() {
 
   let totalPassed = 0;
   let totalFailed = 0;
+  const allWarnings = [];
+  const fixtureResults = [];
 
   try {
     for (const fixture of fixtures) {
@@ -1527,6 +1726,17 @@ async function main() {
       totalPassed += passed;
       totalFailed += failed;
 
+      for (const r of results) {
+        for (const w of (r.warnings || [])) {
+          allWarnings.push(`${fixture.id}: ${w.replace(/^WARN:\s*/, '')}`);
+        }
+      }
+      fixtureResults.push({
+        id: fixture.id,
+        passed: failed === 0,
+        reason: failed > 0 ? results.filter(r => !r.passed).map(r => r.summary).join('; ') : null,
+      });
+
       await postClickUpResult(fixture, results);
     }
   } finally {
@@ -1534,6 +1744,7 @@ async function main() {
   }
 
   console.log(`\n-> Done. ${totalPassed} passed, ${totalFailed} failed out of ${totalPassed + totalFailed} total.`);
+  await postSlackSummary(fixtureResults, totalPassed, totalFailed, allWarnings, startTime);
   if (totalFailed > 0) process.exit(1);
 }
 
