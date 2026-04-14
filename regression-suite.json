@@ -573,8 +573,8 @@
     {
       "id": "CROSS-001",
       "documentType": "BankStatement",
-      "testType": "crosscheck",
-      "description": "Cross-document validation — batch upload PRIMARY BS + SUPPORTING payslip, then POST /api/v1/cross-validate",
+      "testType": "crosscheck-deep",
+      "description": "Cross-document validation — strict crossCheckFindings assertions on name (match+riskLevel) and address (match/primary/riskLevel)",
       "files": [
         "gs://verifyiq-internal-testing/QA/Cross match/qa-test-data_Cross match_TC02a_BankStatement_BPI.pdf"
       ],

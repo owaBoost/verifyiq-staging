@@ -188,6 +188,10 @@ export function buildTaskDescription(fixture, results) {
   if (fixture.testType === 'gcash-rules') assertions.push('gs_90days_consec_bankstatement === 1', 'gs_180days_valid_bankstatement === 1');
   if (fixture.testType === 'dedup-gcash') assertions.push('totals not multiplied by 3', 'crosscheck name match === true', 'crosscheck address match === true');
   if (fixture.testType === 'crosscheck') assertions.push('cross-validate returns consistency_score');
+  if (fixture.testType === 'crosscheck-deep') assertions.push(
+    'name: valuePrimary non-empty, match===true, riskLevel==="low"',
+    'address: valuePrimary non-empty OR match===null if missing; riskLevel!=="high" unless mismatch confirmed',
+  );
   if (fixture.testType === 'cache') assertions.push('2nd parse fromCache === true');
   if (fixture.testType === 'security') assertions.push('security headers present', '401 without api key', '403 with wrong api key');
   if (fixture.testType === 'health') assertions.push('all health endpoints return 200');

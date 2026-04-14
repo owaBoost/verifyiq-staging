@@ -985,6 +985,151 @@ export async function runDedup(fixture, results) {
   }
 }
 
+// -- CROSSCHECK-DEEP: batch upload + strict crossCheckFindings assertions -----
+//
+// Asserts, from the application callback's crossCheckFindings:
+//   name    — valuePrimary non-empty, match === true, riskLevel === 'low'
+//   address — valuePrimary non-empty (unless genuinely missing),
+//             match === true OR null (null allowed only if valuePrimary empty),
+//             riskLevel !== 'high' unless match === false
+
+export async function validateCrosscheckDeep(fixture, results) {
+  if (!state.webhookTokenId) {
+    results.push({ file: null, status: 0, passed: false, body: null, summary: 'SKIPPED -- no webhook token' });
+    return;
+  }
+
+  const gatewayDocType = GATEWAY_DOCTYPE_MAP[fixture.documentType] || fixture.documentType;
+  const documents = fixture.files.map(file => ({
+    documentId: randomUUID(), fileId: randomUUID(), documentClassification: 'PRIMARY',
+    documentType: gatewayDocType, filename: file.split('/').pop(), preSignedUrl: file,
+  }));
+  if (fixture.supportingFiles) {
+    for (const sf of fixture.supportingFiles) {
+      const sfPath = typeof sf === 'string' ? sf : sf.path;
+      const sfDocType = (typeof sf === 'object' && sf.documentType)
+        ? (GATEWAY_DOCTYPE_MAP[sf.documentType] || sf.documentType)
+        : gatewayDocType;
+      const sfClass = (typeof sf === 'object' && sf.documentClassification) || 'SUPPORTING';
+      documents.push({
+        documentId: randomUUID(), fileId: randomUUID(), documentClassification: sfClass,
+        documentType: sfDocType, filename: sfPath.split('/').pop(), preSignedUrl: sfPath,
+      });
+    }
+  }
+
+  const webhookIapHeader = { Authorization: `Bearer ${getWebhookIapToken()}` };
+  const payload = {
+    payload: { publicUserId: `regression-${fixture.id}-${Date.now()}`, submissionId: randomUUID(), documents },
+    callbacks: {
+      documentResult: { url: `${WEBHOOK_SERVER_URL}/${state.webhookTokenId}`, method: 'POST', headers: webhookIapHeader },
+      applicationResult: { url: `${WEBHOOK_SERVER_URL}/${state.webhookTokenId}`, method: 'POST', headers: webhookIapHeader },
+    },
+  };
+
+  let baselineCount;
+  try { baselineCount = await getWebhookBaseline(); }
+  catch (err) { results.push({ file: null, status: 0, passed: false, body: null, summary: `Baseline: ${err.message}` }); return; }
+
+  const client = createStagingClient(true);
+  let status, body;
+  try { const res = await client.post('/ai-gateway/batch-upload', payload); status = res.status; body = res.data; }
+  catch (err) { results.push({ file: null, status: 0, passed: false, body: null, summary: `POST error: ${err.message}` }); return; }
+
+  if (status !== 200 || !body.applicationId) {
+    results.push({ file: null, status, passed: false, body, summary: `HTTP ${status} -- ${JSON.stringify(body).slice(0, 200)}` });
+    return;
+  }
+  console.log(`    HTTP 200, applicationId=${body.applicationId}`);
+
+  const expectedCallbacks = documents.length + 1;
+  let crossCheckFindings = null;
+  try {
+    const callbacks = await pollWebhookCallbacks(baselineCount, expectedCallbacks, body.applicationId);
+    for (const cb of callbacks) {
+      const rawBody = cb.content ?? cb.body ?? JSON.stringify(cb);
+      let decrypted;
+      try { decrypted = await decryptCallback(rawBody); } catch { continue; }
+      if (!decrypted.documentId) {
+        crossCheckFindings = decrypted.ocrResult?.crossCheckFindings ?? decrypted.crossCheckFindings ?? null;
+      }
+    }
+  } catch (err) { results.push({ file: null, status, passed: false, body: null, summary: `Polling: ${err.message}` }); return; }
+
+  console.log('    crossCheckFindings:');
+  if (!Array.isArray(crossCheckFindings)) {
+    results.push({ file: null, status, passed: false, body: null, summary: 'crossCheckFindings missing or not an array' });
+    return;
+  }
+  console.log(JSON.stringify(crossCheckFindings, null, 2).split('\n').map(l => '    ' + l).join('\n'));
+
+  const errors = [];
+
+  // --- name: valuePrimary non-empty, match===true, riskLevel==='low' ---
+  const nameEntry = crossCheckFindings.find(f => f.field === 'name');
+  if (!nameEntry) {
+    errors.push('crossCheck name: entry not found');
+    console.log('    FAIL crossCheck name: entry not found');
+  } else {
+    if (!Array.isArray(nameEntry.valuePrimary) || nameEntry.valuePrimary.length === 0) {
+      errors.push('crossCheck name: valuePrimary is empty');
+      console.log('    FAIL crossCheck name: valuePrimary is empty');
+    } else {
+      console.log(`    PASS crossCheck name: valuePrimary has ${nameEntry.valuePrimary.length} value(s)`);
+    }
+    if (nameEntry.match !== true) {
+      errors.push(`crossCheck name: match=${JSON.stringify(nameEntry.match)}, expected true`);
+      console.log(`    FAIL crossCheck name: match === ${JSON.stringify(nameEntry.match)} (expected true)`);
+    } else {
+      console.log('    PASS crossCheck name: match === true');
+      if (nameEntry.riskLevel !== 'low') {
+        errors.push(`crossCheck name: riskLevel=${JSON.stringify(nameEntry.riskLevel)}, expected "low" when match===true`);
+        console.log(`    FAIL crossCheck name: riskLevel === ${JSON.stringify(nameEntry.riskLevel)} (expected "low")`);
+      } else {
+        console.log('    PASS crossCheck name: riskLevel === "low"');
+      }
+    }
+  }
+
+  // --- address: primary non-empty unless genuinely missing (match===null);
+  //     match must be true or null (null only if primary empty);
+  //     riskLevel must not be 'high' unless match===false ---
+  const addrEntry = crossCheckFindings.find(f => f.field === 'address');
+  if (!addrEntry) {
+    errors.push('crossCheck address: entry not found');
+    console.log('    FAIL crossCheck address: entry not found');
+  } else {
+    const primaryEmpty = !Array.isArray(addrEntry.valuePrimary) || addrEntry.valuePrimary.length === 0;
+    if (primaryEmpty && addrEntry.match !== null) {
+      errors.push('crossCheck address: valuePrimary empty and match !== null (expected null when address genuinely missing)');
+      console.log('    FAIL crossCheck address: valuePrimary empty but match !== null');
+    } else if (!primaryEmpty) {
+      console.log(`    PASS crossCheck address: valuePrimary has ${addrEntry.valuePrimary.length} value(s)`);
+      if (addrEntry.match !== true && addrEntry.match !== null) {
+        errors.push(`crossCheck address: match=${JSON.stringify(addrEntry.match)}, expected true or null`);
+        console.log(`    FAIL crossCheck address: match === ${JSON.stringify(addrEntry.match)} (expected true or null)`);
+      } else {
+        console.log(`    PASS crossCheck address: match === ${JSON.stringify(addrEntry.match)}`);
+      }
+    } else {
+      console.log('    PASS crossCheck address: primary missing, match === null (genuinely absent)');
+    }
+
+    if (addrEntry.riskLevel === 'high' && addrEntry.match !== false) {
+      errors.push(`crossCheck address: riskLevel="high" but match=${JSON.stringify(addrEntry.match)} (mismatch not confirmed)`);
+      console.log('    FAIL crossCheck address: riskLevel "high" without confirmed mismatch');
+    } else {
+      console.log(`    PASS crossCheck address: riskLevel === ${JSON.stringify(addrEntry.riskLevel)} (not unjustified "high")`);
+    }
+  }
+
+  if (errors.length) {
+    results.push({ file: null, status, passed: false, body: null, summary: `crosscheck-deep failed: ${errors.join('; ')}` });
+  } else {
+    results.push({ file: null, status, passed: true, body: null, summary: 'HTTP 200 -- crosscheck-deep name+address validated' });
+  }
+}
+
 // =============================================================================
 // Dispatch table: testType -> keyword function
 // =============================================================================
@@ -996,6 +1141,7 @@ export const TEST_TYPE_RUNNERS = {
   cache: validateCache,
   security: validateSecurity,
   crosscheck: crossValidate,
+  'crosscheck-deep': validateCrosscheckDeep,
   'payslip-deep': validatePayslipDeep,
   completeness: validateCompleteness,
   health: validateHealth,
