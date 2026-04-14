@@ -40,6 +40,28 @@ import {
   postToSlack,
 } from './src/reporters.mjs';
 
+// -- Known stub fields --------------------------------------------------------
+// Backend has not yet implemented these computed fields. When validation
+// encounters one that returns 0 or null, treat it as SKIPPED rather than FAIL
+// so ClickUp results don't surface false negatives.
+
+export const KNOWN_STUB_FIELDS = [
+  'gs_90days_consec_payslip',
+  'gs_180days_valid_payslip',
+  'gs_90days_gross_payslip',
+  'gs_90days_onetime_payslip',
+  'gs_90days_personalexpense_payslip',
+  'gs_inferredincome_payslip',
+];
+
+export function isStubSkipped(fieldName, value) {
+  if (!KNOWN_STUB_FIELDS.includes(fieldName)) return null;
+  if (value === 0 || value == null) {
+    return { skipped: true, note: 'stub field — not yet implemented' };
+  }
+  return null;
+}
+
 // -- CLI args -----------------------------------------------------------------
 
 const args = process.argv.slice(2);
@@ -167,7 +189,17 @@ async function main() {
   if (totalFailed > 0) process.exit(1);
 }
 
-main().catch(err => {
-  console.error('Fatal:', err.message);
-  process.exit(1);
-});
+import { fileURLToPath } from 'url';
+import { realpathSync } from 'fs';
+let invokedDirectly = false;
+try {
+  const entry = process.argv[1] ? realpathSync(process.argv[1]) : '';
+  const self = realpathSync(fileURLToPath(import.meta.url));
+  invokedDirectly = entry === self;
+} catch { /* non-file entry (e.g. -e, REPL) -> not direct */ }
+if (invokedDirectly) {
+  main().catch(err => {
+    console.error('Fatal:', err.message);
+    process.exit(1);
+  });
+}

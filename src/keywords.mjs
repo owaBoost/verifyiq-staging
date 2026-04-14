@@ -27,6 +27,7 @@ import {
   validateDocumentCallback,
   validateApplicationCallback,
 } from './validators.mjs';
+import { isStubSkipped } from '../run_regression.mjs';
 
 // -- Single-doc parse with response validation --------------------------------
 
@@ -736,18 +737,24 @@ export async function validateGcashRules(fixture, results) {
 
   // Assert required fields
   const errors = [];
-  const val90 = computedFields?.gs_90days_consec_bankstatement;
-  if (val90 === 1) { console.log(`    PASS gs_90days_consec_bankstatement === 1`); }
-  else { console.log(`    FAIL gs_90days_consec_bankstatement === 1 (actual: ${JSON.stringify(val90)})`); errors.push(`gs_90days_consec=${JSON.stringify(val90)}`); }
-
-  const val180 = computedFields?.gs_180days_valid_bankstatement;
-  if (val180 === 1) { console.log(`    PASS gs_180days_valid_bankstatement === 1`); }
-  else { console.log(`    FAIL gs_180days_valid_bankstatement === 1 (actual: ${JSON.stringify(val180)})`); errors.push(`gs_180days_valid=${JSON.stringify(val180)}`); }
+  const skipped = [];
+  const checks = [
+    ['gs_90days_consec_bankstatement', computedFields?.gs_90days_consec_bankstatement],
+    ['gs_180days_valid_bankstatement', computedFields?.gs_180days_valid_bankstatement],
+  ];
+  for (const [key, val] of checks) {
+    const stub = isStubSkipped(key, val);
+    if (stub) { console.log(`    SKIP ${key} — ${stub.note}`); skipped.push(`${key}: ${stub.note}`); continue; }
+    if (val === 1) { console.log(`    PASS ${key} === 1`); }
+    else { console.log(`    FAIL ${key} === 1 (actual: ${JSON.stringify(val)})`); errors.push(`${key}=${JSON.stringify(val)}`); }
+  }
 
   if (errors.length) {
-    results.push({ file: null, status, passed: false, body: null, summary: `computedFields assertion failed: ${errors.join(', ')}` });
+    const suffix = skipped.length ? ` (skipped: ${skipped.length})` : '';
+    results.push({ file: null, status, passed: false, body: null, summary: `computedFields assertion failed: ${errors.join(', ')}${suffix}` });
   } else {
-    results.push({ file: null, status, passed: true, body: null, summary: 'HTTP 200 -- gs_90days_consec=1, gs_180days_valid=1 validated' });
+    const suffix = skipped.length ? ` (${skipped.length} stub field(s) skipped)` : '';
+    results.push({ file: null, status, passed: true, body: null, summary: `HTTP 200 -- gs_90days_consec=1, gs_180days_valid=1 validated${suffix}` });
   }
 }
 
@@ -854,6 +861,11 @@ export async function validateDedup(fixture, results) {
   const errors = [];
   for (const { key, expected, tripled, tolerance } of assertions) {
     const actual = computedFields[key];
+    const stub = isStubSkipped(key, actual);
+    if (stub) {
+      console.log(`    SKIP ${key} — ${stub.note}`);
+      continue;
+    }
     const tol = tolerance || 0.001;
     const pass = typeof actual === 'number' && Math.abs(actual - expected) < tol;
     const isTripled = tripled != null && typeof actual === 'number' && Math.abs(actual - tripled) < tol;

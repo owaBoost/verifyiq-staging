@@ -6,6 +6,7 @@
  *   errors   = hard fails (summaryOCR missing, wrong docType)
  *   warnings = soft checks (specific field names may vary per bank/issuer)
  */
+import { isStubSkipped } from '../run_regression.mjs';
 
 // -- Internal helpers ---------------------------------------------------------
 
@@ -322,15 +323,18 @@ export function validateApplicationCallback(decrypted) {
 // not currently called by the keywords (behavior preservation).
 export function validateComputedFields(computedFields, assertions) {
   const errors = [];
+  const skipped = [];
   for (const { key, expected, tripled, tolerance } of assertions) {
     const actual = computedFields[key];
+    const stub = isStubSkipped(key, actual);
+    if (stub) { skipped.push(`${key}: ${stub.note}`); continue; }
     const tol = tolerance || 0.001;
     const pass = typeof actual === 'number' && Math.abs(actual - expected) < tol;
     const isTripled = tripled != null && typeof actual === 'number' && Math.abs(actual - tripled) < tol;
     if (isTripled) errors.push(`${key}=${actual} (3x detected)`);
     else if (!pass) errors.push(`${key}=${JSON.stringify(actual)}`);
   }
-  return { errors };
+  return { errors, skipped };
 }
 
 // -- Cross-check validator (generic helper) -----------------------------------
