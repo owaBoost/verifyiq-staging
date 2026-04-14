@@ -343,7 +343,9 @@ export async function postToClickUp(fixture, results) {
   const passedCount = results.filter(r => r.passed).length;
   const totalCount = results.length;
   const icon = passedCount === totalCount ? 'PASS' : passedCount > 0 ? 'PARTIAL' : 'FAIL';
-  const status = passedCount === totalCount ? 'complete' : 'in progress';
+  // Board statuses: "to do" (created, not run), "passed" (all asserts ok, warnings
+  // allowed), "failed" (any assertion failed). Warnings do not downgrade "passed".
+  const status = passedCount === totalCount ? 'passed' : 'failed';
   const timestamp = new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
 
   const description = buildTaskDescription(fixture, results);
