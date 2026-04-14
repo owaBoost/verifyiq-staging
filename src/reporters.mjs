@@ -205,6 +205,9 @@ export function buildTaskDescription(fixture, results) {
 
   // Build description in strict format
   const desc = [];
+  const icon = passedCount === totalCount ? '✅ PASS' : passedCount > 0 ? '⚠️ PARTIAL' : '❌ FAIL';
+  desc.push(`Result: ${icon} ${passedCount}/${totalCount}`);
+  desc.push('');
   desc.push(`Test: ${fixture.id} — ${fixture.documentType} ${fixture.testType || 'default'}`);
   desc.push(`Run: ${timestamp}`);
   desc.push(`Environment: staging`);
@@ -357,9 +360,10 @@ export async function postToClickUp(fixture, results) {
     return `${rIcon} **${fn}** — ${r.summary}`;
   });
 
-  const taskNamePrefix = `${fixture.id} --`;
-  const existingTaskId = Object.entries(existingTasks).find(([name]) => name.includes(taskNamePrefix))?.[1];
-  const taskName = `${icon} ${fixture.id} -- ${fixture.documentType} (${passedCount}/${totalCount})`;
+  // Name intentionally excludes PASS/FAIL — board status field already shows it.
+  const taskNamePrefix = `${fixture.id} —`;
+  const existingTaskId = Object.entries(existingTasks).find(([name]) => name.startsWith(taskNamePrefix))?.[1];
+  const taskName = `${fixture.id} — ${fixture.description || fixture.documentType}`;
 
   try {
     if (existingTaskId) {
