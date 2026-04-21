@@ -282,6 +282,35 @@
       "section": "Employment"
     },
     {
+      "id": "PS-TC001",
+      "documentType": "Payslip",
+      "testType": "payslip-rules",
+      "description": "TC-001: Semi-monthly payslip batch — Blade Asia, Maria Garcia, 6 payslips. Asserts PAYSLIP computedFields (90/180-day rules, one-employer, gross, onetime, personalexpense, inferredincome)",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip/Blade Asia_Maria Garcia Payslip_2026-01-15.pdf",
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip/Blade Asia_Maria Garcia Payslip_2026-01-31.pdf",
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip/Blade Asia_Maria Garcia Payslip_2026-02-15.pdf",
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip/Blade Asia_Maria Garcia Payslip_2026-02-28.pdf",
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip/Blade Asia_Maria Garcia Payslip_2026-03-15.pdf",
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip/Blade Asia_Maria Garcia Payslip_2026-03-31.pdf"
+      ],
+      "clickupTaskUrl": "https://app.clickup.com/t/86b9e4h08",
+      "section": "Employment"
+    },
+    {
+      "id": "PS-TC003",
+      "documentType": "Payslip",
+      "testType": "payslip-rules",
+      "description": "TC-003: Monthly payslip batch — Alorica, Maria Santos Garcia, 3 payslips. Asserts PAYSLIP computedFields (90/180-day rules, one-employer, gross, onetime, personalexpense, inferredincome)",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip_January2026_MARIA_SANTOS_GARCIA.pdf",
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip_February2026_MARIA_SANTOS_GARCIA.pdf",
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip_March2026_MARIA_SANTOS_GARCIA.pdf"
+      ],
+      "clickupTaskUrl": "https://app.clickup.com/t/86b9gh6ud",
+      "section": "Employment"
+    },
+    {
       "id": "COE-001",
       "documentType": "CertificateOfEmployment",
       "testType": "default",

@@ -79,6 +79,22 @@ proposals only. Staleness rule: warning pattern entries unconfirmed after 180 da
 - Recurrence: 3
 - Notes: Pipeline logging bug drafted (bug-drafts/2026-04-16_PASS-FRAUD-FP-001-duplicate-log.md).
 
+### Callback identity field mismatch
+- Fixtures: infra-callback-echo-publicuserid-numeric, infra-callback-echo-submissionid,
+  infra-callback-echo-bearer-token, infra-callback-echo-publicuserid-uuid,
+  infra-callback-echo-multidoc-batch
+- Warning text: 'Callback response identity field (publicUserId/submissionId/
+  Authorization) does not match the value in the originating BatchUploadRequest.'
+- Classification: Needs Investigation
+- Reason: Downstream clients rely on verbatim echo to correlate callbacks with
+  their originating request. Any mutation is a contract break.
+- First seen: 2026-04-17
+- Related tickets: 86b9fkm0u
+- Recurrence: 1
+- Notes: Pattern covers publicUserId (numeric and UUID variants), submissionId,
+  and Authorization header preservation across document-listener and
+  application-listener callback endpoints.
+
 ---
 
 ## Fragile Fixtures
@@ -184,6 +200,11 @@ Flagged (was Stable, now has new warning).
 | CROSS-001 | Infrastructure | 1 | 3 | 2026-04-16 | - | New |
 | BLS-001 | Infrastructure | 2 | 3 | 2026-04-16 | - | New |
 | DEDUP-001 | Infrastructure | 1 | 3 | 2026-04-16 | - | New |
+| infra-callback-echo-publicuserid-numeric | Infrastructure | 0 | 0 | - | - | New |
+| infra-callback-echo-submissionid | Infrastructure | 0 | 0 | - | - | New |
+| infra-callback-echo-bearer-token | Infrastructure | 0 | 0 | - | - | New |
+| infra-callback-echo-publicuserid-uuid | Infrastructure | 0 | 0 | - | - | New |
+| infra-callback-echo-multidoc-batch | Infrastructure | 0 | 0 | - | - | New |
 
 ---
 
@@ -241,3 +262,40 @@ Flagged (was Stable, now has new warning).
   No overtime on any payslip — gs_90days_onetime_payslip must always be 0
   SSS MPF (₱500) captured as otherDeductionAmount — correctly treated as govt contribution
   PhilHealth and HDMF are ₱0 — handled at employer level
+
+### infra-callback-echo-publicuserid-numeric
+- Description: Callback echo — numeric publicUserId round-trip (GCash GGIVES repro)
+- Category: Infrastructure
+- origin_ticket: 86b9fkm0u
+- regression_for: PublicUserId mismatch in OCR callback response
+- Notes: Guards GCash GGIVES numeric publicUserId round-trip. Do not
+  normalize or mutate publicUserId at any callback hop.
+
+### infra-callback-echo-submissionid
+- Description: Callback echo — submissionId preserved in callback response
+- Category: Infrastructure
+- origin_ticket: 86b9fkm0u
+
+### infra-callback-echo-bearer-token
+- Description: Callback echo — Authorization header preserved verbatim
+- Category: Infrastructure
+- origin_ticket: 86b9fkm0u
+- Notes: Verifies Authorization header is preserved verbatim at both
+  document-listener and application-listener endpoints.
+
+### infra-callback-echo-publicuserid-uuid
+- Description: Callback echo — UUID publicUserId round-trip
+- Category: Infrastructure
+- origin_ticket: 86b9fkm0u
+
+### infra-callback-echo-multidoc-batch
+- Description: Callback echo — multi-document batch (4 docs, 3 PAYSLIP + 1 BANK_STATEMENT)
+- Category: Infrastructure
+- origin_ticket: 86b9fkm0u
+- Notes: Mirrors exact GCash repro (4 docs, 3 PAYSLIP + 1 BANK_STATEMENT).
+
+---
+
+## Pending
+
+- TC-ELEC-03 / TC-ELEC-04: fixtures confirmed in GCS, not yet in suite. Blocked on elecbill-rules runner (PRIMARY bank statement + SUPPORTING electricity bill assembly, extract computedFields.ELECTRICITY_BILL.data.gs_180days_valid_elecbill). Wire in when runner is ready.

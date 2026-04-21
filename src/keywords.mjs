@@ -1130,6 +1130,155 @@ export async function validateCrosscheckDeep(fixture, results) {
   }
 }
 
+// -- PAYSLIP-RULES: batch upload payslips + assert PAYSLIP computedFields -----
+
+export async function validatePayslipRules(fixture, results) {
+  if (!state.webhookTokenId) {
+    results.push({ file: null, status: 0, passed: false, body: null, summary: 'SKIPPED -- no webhook token' });
+    return;
+  }
+
+  const gatewayDocType = GATEWAY_DOCTYPE_MAP[fixture.documentType] || fixture.documentType;
+  const documents = fixture.files.map(file => ({
+    documentId: randomUUID(), fileId: randomUUID(), documentClassification: 'PRIMARY',
+    documentType: gatewayDocType, filename: file.split('/').pop(), preSignedUrl: file,
+  }));
+
+  const webhookIapHeader = { Authorization: `Bearer ${getWebhookIapToken()}` };
+  const submissionId = randomUUID();
+  const publicUserId = `regression-${fixture.id}-${Date.now()}`;
+  const payload = {
+    payload: { publicUserId, submissionId, documents },
+    callbacks: {
+      documentResult: { url: `${WEBHOOK_SERVER_URL}/${state.webhookTokenId}`, method: 'POST', headers: webhookIapHeader },
+      applicationResult: { url: `${WEBHOOK_SERVER_URL}/${state.webhookTokenId}`, method: 'POST', headers: webhookIapHeader },
+    },
+  };
+
+  let baselineCount;
+  try { baselineCount = await getWebhookBaseline(); console.log(`    Webhook baseline: ${baselineCount}`); }
+  catch (err) { results.push({ file: null, status: 0, passed: false, body: null, summary: `Webhook baseline failed: ${err.message}` }); return; }
+
+  console.log(`  -> Batch upload (${fixture.files.length} payslips)...`);
+  const client = createStagingClient(true);
+  let status, body;
+  try { const res = await client.post('/ai-gateway/batch-upload', payload); status = res.status; body = res.data; }
+  catch (err) { results.push({ file: null, status: 0, passed: false, body: null, summary: `POST error: ${err.message}` }); return; }
+
+  console.log(`    POST response: HTTP ${status}`);
+  if (status !== 200 || !body.applicationId) {
+    results.push({ file: null, status, passed: false, body, summary: `HTTP ${status} -- ${JSON.stringify(body).slice(0, 200)}` });
+    return;
+  }
+  console.log(`    HTTP 200, applicationId=${body.applicationId}`);
+
+  const expectedCallbacks = documents.length + 1;
+  let callbacks;
+  try {
+    console.log(`    Waiting for ${expectedCallbacks} callbacks (${documents.length} doc + 1 app)...`);
+    callbacks = await pollWebhookCallbacks(baselineCount, expectedCallbacks, body.applicationId);
+    console.log(`    Received ${callbacks.length} callbacks`);
+  } catch (err) { results.push({ file: null, status, passed: false, body, summary: `Polling: ${err.message}` }); return; }
+
+  // Decrypt all callbacks, validate doc/app, extract computedFields
+  const errors = [];
+  const warnings = [];
+  let computedFields = null;
+  let crossCheckFindings = null;
+
+  for (const cb of callbacks) {
+    const rawBody = cb.content ?? cb.body ?? JSON.stringify(cb);
+    let decrypted;
+    try { decrypted = await decryptCallback(rawBody); } catch (err) { errors.push(`Decrypt failed: ${err.message}`); continue; }
+
+    if (decrypted.documentId) {
+      console.log(`    Document callback OK (docId=${decrypted.documentId}, status=${decrypted.status})`);
+      if (decrypted.status !== 'COMPLETED') errors.push(`doc ${decrypted.documentId}: status=${decrypted.status}`);
+      if (decrypted.submissionId !== submissionId) errors.push(`doc ${decrypted.documentId}: submissionId mismatch`);
+      if (decrypted.publicUserId !== publicUserId) errors.push(`doc ${decrypted.documentId}: publicUserId mismatch`);
+      // Auth header echo
+      const cbAuth = cb.headers?.Authorization ?? cb.headers?.authorization;
+      if (cbAuth !== webhookIapHeader.Authorization) errors.push(`doc ${decrypted.documentId}: Auth header mismatch`);
+    } else {
+      console.log(`    Application callback (appId=${decrypted.applicationId}, status=${decrypted.status})`);
+      if (decrypted.status !== 'COMPLETED') errors.push(`app: status=${decrypted.status}`);
+      if (decrypted.submissionId !== submissionId) errors.push('app: submissionId mismatch');
+      if (decrypted.publicUserId !== publicUserId) errors.push('app: publicUserId mismatch');
+      const cbAuth = cb.headers?.Authorization ?? cb.headers?.authorization;
+      if (cbAuth !== webhookIapHeader.Authorization) errors.push('app: Auth header mismatch');
+      computedFields = decrypted.ocrResult?.computedFields ?? decrypted.computedFields ?? null;
+      crossCheckFindings = decrypted.ocrResult?.crossCheckFindings ?? decrypted.crossCheckFindings ?? null;
+    }
+  }
+
+  if (!computedFields) {
+    errors.push('No computedFields in application callback');
+    results.push({ file: null, status, passed: false, body: null, warnings, summary: `payslip-rules failed: ${errors.join('; ')}` });
+    return;
+  }
+
+  // Availability flags
+  if (computedFields.PAYSLIP?.available !== true) errors.push('PAYSLIP.available != true');
+  if (computedFields.BANK_STATEMENT?.available !== false) errors.push('BANK_STATEMENT.available != false');
+  if (computedFields.ELECTRICITY_BILL?.available !== false) errors.push('ELECTRICITY_BILL.available != false');
+
+  // PAYSLIP computedFields
+  const psData = computedFields.PAYSLIP?.data;
+  console.log('    computedFields (PAYSLIP):');
+  if (psData) {
+    for (const [k, v] of Object.entries(psData)) console.log(`      ${k}: ${JSON.stringify(v)}`);
+  } else {
+    console.log('      (none found)');
+    errors.push('PAYSLIP.data missing');
+  }
+
+  // Exact-value checks (with stub-field awareness)
+  const skipped = [];
+  const exactChecks = [
+    ['gs_180days_valid_payslip', 1],
+    ['gs_90days_consec_payslip', 1],
+    ['gs_90days_oneemployer_payslip', 1],
+  ];
+  for (const [key, expected] of exactChecks) {
+    const val = psData?.[key];
+    const stub = isStubSkipped(key, val);
+    if (stub) { console.log(`    SKIP ${key} — ${stub.note}`); skipped.push(`${key}: ${stub.note}`); continue; }
+    if (val === expected) { console.log(`    PASS ${key} === ${expected}`); }
+    else { console.log(`    FAIL ${key} === ${expected} (actual: ${JSON.stringify(val)})`); errors.push(`${key}=${JSON.stringify(val)}`); }
+  }
+
+  // Present-and-numeric checks (with stub-field awareness)
+  const numericChecks = [
+    'gs_90days_gross_payslip',
+    'gs_90days_onetime_payslip',
+    'gs_90days_personalexpense_payslip',
+    'gs_inferredincome_payslip',
+  ];
+  for (const key of numericChecks) {
+    const val = psData?.[key];
+    const stub = isStubSkipped(key, val);
+    if (stub) { console.log(`    SKIP ${key} — ${stub.note}`); skipped.push(`${key}: ${stub.note}`); continue; }
+    if (typeof val === 'number' && !Number.isNaN(val)) { console.log(`    PASS ${key} = ${val} (numeric)`); }
+    else { console.log(`    FAIL ${key} not numeric (actual: ${JSON.stringify(val)})`); errors.push(`${key}=${JSON.stringify(val)} (expected numeric)`); }
+  }
+
+  // crossCheckFindings
+  if (crossCheckFindings == null) {
+    warnings.push('WARN: crossCheckFindings not present in app callback');
+    console.log('    WARN crossCheckFindings not present');
+  } else {
+    console.log(`    PASS crossCheckFindings present (${Array.isArray(crossCheckFindings) ? crossCheckFindings.length + ' entries' : typeof crossCheckFindings})`);
+  }
+
+  if (errors.length) {
+    const suffix = skipped.length ? ` (${skipped.length} stub skipped)` : '';
+    results.push({ file: null, status, passed: false, body: null, warnings, summary: `payslip-rules failed: ${errors.join('; ')}${suffix}` });
+  } else {
+    const suffix = skipped.length ? ` (${skipped.length} stub field(s) skipped)` : '';
+    results.push({ file: null, status, passed: true, body: null, warnings, summary: `HTTP 200 -- payslip computedFields validated${suffix}` });
+  }
+}
+
 // =============================================================================
 // Dispatch table: testType -> keyword function
 // =============================================================================
@@ -1150,4 +1299,5 @@ export const TEST_TYPE_RUNNERS = {
   'gcash-rules': validateGcashRules,
   'dedup-gcash': validateDedup,
   dedup: runDedup,
+  'payslip-rules': validatePayslipRules,
 };
