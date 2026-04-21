@@ -182,6 +182,24 @@ Rules:
 
 ---
 
+## Autonomous Operations
+
+Claude Code may proceed without confirmation for:
+- Moving misplaced files to their correct folder
+- Committing clean working tree changes with a descriptive message
+- Stripping KB/DRAFT entries for fixtures not present in regression-suite.json
+- Applying a DRAFT after showing a diff, if the only changes are ADD operations with no classification downgrades
+- Collapsing consecutive blank lines in markdown files
+
+Claude Code must stop and wait for explicit approval for:
+- Any write to regression-kb.md (always show diff first)
+- Any change to src/keywords.mjs or run_regression.mjs
+- Any deletion that is not regression-kb.md.DRAFT
+- Any reclassification of an existing warning pattern
+- Anything touching production environment config
+
+---
+
 ## Claude Code Conventions
 - Show proposed changes before writing to `regression-kb.md`
 - Use report date for filenames, not today's date
