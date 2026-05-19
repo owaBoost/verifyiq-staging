@@ -3,7 +3,14 @@
  */
 
 import axios from 'axios';
-import { clickupClient, CLICKUP_LIST_ID, SLACK_WEBHOOK_URL } from './utils.mjs';
+import {
+  state,
+  clickupClient,
+  CLICKUP_LIST_ID,
+  DEV_CLICKUP_LIST_ID,
+  DEV_CLICKUP_FOLDER_ID,
+  SLACK_WEBHOOK_URL,
+} from './utils.mjs';
 import { extractKeyFields } from './validators.mjs';
 
 // -- Module-level state -------------------------------------------------------
@@ -19,13 +26,25 @@ let existingTasks = {}; // name-prefix -> task id
 
 export async function createClickUpList() {
   if (!clickupClient) return;
+  const isDev = state.env === 'dev';
   const dateStr = new Date().toISOString().slice(0, 10);
-  const listName = `Regression ${dateStr}`;
+  const envTag = isDev ? ' [dev]' : '';
+  const listName = `Regression${envTag} ${dateStr}`;
+
+  // Initialise runListId to the env-appropriate default
+  runListId = isDev ? DEV_CLICKUP_LIST_ID : CLICKUP_LIST_ID;
+
   try {
-    // Find the folder that contains the default CLICKUP_LIST_ID
-    const { data: listData } = await clickupClient.get(`/list/${CLICKUP_LIST_ID}`);
-    const folderId = listData.folder?.id;
-    if (!folderId) { console.warn('  Could not find folder_id -- using default list'); return; }
+    // If a DEV_CLICKUP_FOLDER_ID is explicitly configured, use it directly.
+    let folderId;
+    if (isDev && process.env.DEV_CLICKUP_FOLDER_ID) {
+      folderId = DEV_CLICKUP_FOLDER_ID;
+    } else {
+      // Find the folder that contains the env-appropriate base list
+      const { data: listData } = await clickupClient.get(`/list/${runListId}`);
+      folderId = listData.folder?.id;
+      if (!folderId) { console.warn('  Could not find folder_id -- using default list'); return; }
+    }
 
     // Check if today's dated list already exists in that folder
     const { data: folderLists } = await clickupClient.get(`/folder/${folderId}/list`);
@@ -472,8 +491,10 @@ export function buildSlackMessage(fixtureResults, totalPassed, totalFailed, allW
     ? truncate(`*⚠️ Warnings (${allWarnings.length}):*\n${allWarnings.map(w => `• ${w}`).join('\n')}`, 2900)
     : `*⚠️ Warnings (0):*\nNone`;
 
+  const envLabel = state.env === 'dev' ? 'Dev' : 'Staging';
+  const envTag   = state.env === 'dev' ? ' [dev]' : '';
   return [
-    { type: 'header', text: { type: 'plain_text', text: `VerifyIQ Staging Regression — ${timeStr} UTC` } },
+    { type: 'header', text: { type: 'plain_text', text: `VerifyIQ ${envLabel} Regression — ${timeStr} UTC` } },
     {
       type: 'section',
       fields: [
@@ -488,7 +509,7 @@ export function buildSlackMessage(fixtureResults, totalPassed, totalFailed, allW
     { type: 'divider' },
     { type: 'section', text: { type: 'mrkdwn', text: failedText } },
     { type: 'section', text: { type: 'mrkdwn', text: warningText } },
-    { type: 'section', text: { type: 'mrkdwn', text: `*📋 ClickUp:* Regression ${dateStr}` } },
+    { type: 'section', text: { type: 'mrkdwn', text: `*📋 ClickUp:* Regression${envTag} ${dateStr}` } },
   ];
 }
 

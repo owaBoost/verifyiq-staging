@@ -10,19 +10,36 @@ import { readFileSync } from 'fs';
 // -- Config -------------------------------------------------------------------
 
 export const STAGING_URL = (process.env.STAGING_URL || 'https://ai-boostform-api-1019050071398.us-central1.run.app').replace(/\/$/, '');
-export const VERIFYIQ_KEY = process.env.VERIFYIQ_API_KEY;
+export const DEV_URL     = (process.env.DEV_URL || 'https://parser-dev.boostkh.com').replace(/\/$/, '');
+
+export const VERIFYIQ_KEY     = process.env.VERIFYIQ_API_KEY;
+export const DEV_VERIFYIQ_KEY = process.env.DEV_VERIFYIQ_API_KEY;
+
 export const GOOGLE_SA_KEY_FILE = process.env.GOOGLE_SA_KEY_FILE;
-export const CLICKUP_TOKEN = process.env.CLICKUP_API_TOKEN;
+export const CLICKUP_TOKEN      = process.env.CLICKUP_API_TOKEN;
+
+// Staging ClickUp targets
 export const CLICKUP_FOLDER_ID = process.env.CLICKUP_FOLDER_ID || '90147720582';
-export const CLICKUP_LIST_ID = process.env.CLICKUP_LIST_ID || '901415181079';
+export const CLICKUP_LIST_ID   = process.env.CLICKUP_LIST_ID   || '901415181079';
+
+// Dev ClickUp targets (fall back to staging values when not set)
+export const DEV_CLICKUP_FOLDER_ID = process.env.DEV_CLICKUP_FOLDER_ID || process.env.CLICKUP_FOLDER_ID || '90147720582';
+export const DEV_CLICKUP_LIST_ID   = process.env.DEV_CLICKUP_LIST_ID   || process.env.CLICKUP_LIST_ID   || '901415181079';
+
 export const WEBHOOK_SERVER_URL = (process.env.WEBHOOK_SERVER_URL || '').trim().replace(/\/$/, '');
-export const DECRYPT_URL = process.env.DECRYPT_URL || 'https://us-central1-boost-capital-staging.cloudfunctions.net/verifyiq-gateway/utils/decrypt';
-export const SLACK_WEBHOOK_URL = (process.env.SLACK_WEBHOOK_URL || '').trim();
+export const DECRYPT_URL        = process.env.DECRYPT_URL || 'https://us-central1-boost-capital-staging.cloudfunctions.net/verifyiq-gateway/utils/decrypt';
+export const SLACK_WEBHOOK_URL  = (process.env.SLACK_WEBHOOK_URL || '').trim();
 
 // Mutable shared state (set by orchestrator, read by keywords/reporters)
 export const state = {
   webhookTokenId: null,
+  env: 'staging', // resolved by orchestrator from --env flag / TARGET_ENV var
 };
+
+// Returns the base URL for the resolved environment.
+export function getBaseUrl() {
+  return state.env === 'dev' ? DEV_URL : STAGING_URL;
+}
 
 // -- Doc-type mapping ---------------------------------------------------------
 
@@ -96,11 +113,15 @@ export function getWebhookIapToken() {
 
 // -- Axios clients ------------------------------------------------------------
 
-export function createStagingClient(useIap = false) {
-  const authHeader = useIap ? `Bearer ${generateIapToken()}` : `Bearer ${VERIFYIQ_KEY}`;
+export function createApiClient(useIap = false) {
+  const isDev = state.env === 'dev';
+  const baseURL = isDev ? DEV_URL : STAGING_URL;
+  const key = isDev ? DEV_VERIFYIQ_KEY : VERIFYIQ_KEY;
+  // Dev environment does not use IAP — always authenticate with the API key.
+  const authHeader = (!isDev && useIap) ? `Bearer ${generateIapToken()}` : `Bearer ${key}`;
   return axios.create({
-    baseURL: STAGING_URL,
-    headers: { Authorization: authHeader, 'X-Tenant-Token': VERIFYIQ_KEY, 'Content-Type': 'application/json' },
+    baseURL,
+    headers: { Authorization: authHeader, 'X-Tenant-Token': key, 'Content-Type': 'application/json' },
     validateStatus: () => true,
   });
 }

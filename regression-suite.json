@@ -1,9 +1,9 @@
 {
-  "description": "VerifyIQ staging regression suite — all fixtures use gs://verifyiq-internal-testing/QA/ as the canonical test data bucket",
-  "staging_url": "https://ai-boostform-api-1019050071398.us-central1.run.app",
+  "description": "VerifyIQ regression suite — all fixtures use gs://verifyiq-internal-testing/QA/ as the canonical test data bucket",
   "fixtures": [
     {
       "id": "BS-BDO-001",
+      "smoke": true,
       "documentType": "BankStatement",
       "testType": "default",
       "description": "BDO bank statement — default parse + batch upload",
@@ -64,6 +64,7 @@
     },
     {
       "id": "BS-DEEP-BDO-001",
+      "smoke": true,
       "documentType": "BankStatement",
       "testType": "bank-deep",
       "description": "BDO bank statement — deep transaction + calculated field validation",
@@ -311,6 +312,17 @@
       "section": "Employment"
     },
     {
+      "id": "PS-QR-001",
+      "documentType": "Payslip",
+      "testType": "quality-reject",
+      "description": "TC-04: Section-level null preserved on quality-rejected document (API spec v1.0.16) — blurry payslip, expect qualityCheck populated, documentData/fraudChecks/completenessCheck null",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/Negative Test/doc_blurry.jpg"
+      ],
+      "skipBatch": true,
+      "section": "Employment"
+    },
+    {
       "id": "COE-001",
       "documentType": "CertificateOfEmployment",
       "testType": "default",
@@ -324,6 +336,7 @@
     },
     {
       "id": "PHILID-001",
+      "smoke": true,
       "documentType": "PhilippineNationalID",
       "testType": "default",
       "description": "Philippine National ID — default parse",
@@ -336,6 +349,7 @@
     },
     {
       "id": "PHILID-FRAUD-TAMPERED-001",
+      "smoke": true,
       "documentType": "PhilippineNationalID",
       "testType": "fraud",
       "pipeline": {
@@ -612,6 +626,7 @@
     },
     {
       "id": "HEALTH-001",
+      "smoke": true,
       "documentType": "health",
       "testType": "health",
       "description": "Health endpoints — startup, live, ready, detailed, circuit breakers",
@@ -628,6 +643,7 @@
     },
     {
       "id": "SEC-001",
+      "smoke": true,
       "documentType": "BankStatement",
       "testType": "security",
       "description": "Security headers + auth (200, 401, 403)",
@@ -638,6 +654,7 @@
     },
     {
       "id": "CACHE-001",
+      "smoke": true,
       "documentType": "BankStatement",
       "testType": "cache",
       "pipeline": {

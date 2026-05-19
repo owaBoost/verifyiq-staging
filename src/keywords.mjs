@@ -13,13 +13,13 @@ import { randomUUID } from 'crypto';
 import {
   state,
   sleep,
-  createStagingClient,
+  createApiClient,
+  getBaseUrl,
   getWebhookIapToken,
   getWebhookBaseline,
   pollWebhookCallbacks,
   decryptCallback,
   WEBHOOK_SERVER_URL,
-  STAGING_URL,
   GATEWAY_DOCTYPE_MAP,
 } from './utils.mjs';
 import {
@@ -33,7 +33,7 @@ import { isStubSkipped } from '../run_regression.mjs';
 
 export async function parseDocument(fixture, file, extraPayload = {}) {
   const payload = { file, fileType: fixture.documentType, classification: 'PRIMARY', ...extraPayload };
-  const client = createStagingClient(false);
+  const client = createApiClient(false);
   const start = Date.now();
   const res = await client.post('/v1/documents/parse', payload);
   const elapsed = Date.now() - start;
@@ -93,7 +93,7 @@ export async function batchUpload(fixture) {
   try { baselineCount = await getWebhookBaseline(); console.log(`    Webhook baseline: ${baselineCount}`); }
   catch (err) { return { status: 0, passed: false, body: null, summary: `Webhook baseline failed: ${err.message}` }; }
 
-  const client = createStagingClient(true);
+  const client = createApiClient(true);
   let status, body;
   try { const res = await client.post('/ai-gateway/batch-upload', payload); status = res.status; body = res.data; }
   catch (err) { return { status: 0, passed: false, body: null, summary: `POST error: ${err.message}` }; }
@@ -351,7 +351,7 @@ export async function validateSecurity(fixture, results) {
   // 1. Normal parse (200) - check security headers
   console.log('  -> [SEC] Normal request (expect 200 + security headers)');
   try {
-    const client = createStagingClient(false);
+    const client = createApiClient(false);
     const res = await client.post('/v1/documents/parse', {
       file, fileType: fixture.documentType, classification: 'PRIMARY',
     });
@@ -374,7 +374,7 @@ export async function validateSecurity(fixture, results) {
   console.log('  -> [SEC] No API key (expect 401)');
   try {
     const noAuth = axios.create({
-      baseURL: STAGING_URL, headers: { 'Content-Type': 'application/json' }, validateStatus: () => true,
+      baseURL: getBaseUrl(), headers: { 'Content-Type': 'application/json' }, validateStatus: () => true,
     });
     const res = await noAuth.post('/v1/documents/parse', {
       file, fileType: fixture.documentType, classification: 'PRIMARY',
@@ -392,7 +392,7 @@ export async function validateSecurity(fixture, results) {
   console.log('  -> [SEC] Wrong API key (expect 401/403)');
   try {
     const wrongAuth = axios.create({
-      baseURL: STAGING_URL,
+      baseURL: getBaseUrl(),
       headers: { Authorization: 'Bearer sk_wrong_key_12345', 'X-Tenant-Token': 'sk_wrong_key_12345', 'Content-Type': 'application/json' },
       validateStatus: () => true,
     });
@@ -451,7 +451,7 @@ export async function crossValidate(fixture, results) {
   catch (err) { results.push({ file: null, status: 0, passed: false, body: null, summary: `Webhook baseline failed: ${err.message}` }); return; }
 
   console.log(`  -> [CROSSCHECK] Batch upload (${documents.length} docs: ${fixture.files.length} PRIMARY + ${fixture.supportingFiles?.length || 0} SUPPORTING)...`);
-  const batchClient = createStagingClient(true);
+  const batchClient = createApiClient(true);
   let batchStatus, batchBody;
   try { const res = await batchClient.post('/ai-gateway/batch-upload', payload); batchStatus = res.status; batchBody = res.data; }
   catch (err) { results.push({ file: null, status: 0, passed: false, body: null, summary: `Batch POST error: ${err.message}` }); return; }
@@ -485,7 +485,7 @@ export async function crossValidate(fixture, results) {
   console.log(`  -> [CROSSCHECK] POST /api/v1/cross-validate { application_id: "${applicationId}" }`);
   await sleep(2500);
   try {
-    const client = createStagingClient(false);
+    const client = createApiClient(false);
     const res = await client.post('/api/v1/cross-validate', { application_id: applicationId });
     console.log(`    HTTP ${res.status}`);
 
@@ -581,7 +581,7 @@ export async function validateHealth(fixture, results) {
     console.log(`  -> [HEALTH] GET ${endpoint}`);
     try {
       const useIap = endpoint.startsWith('/ai-gateway/');
-      const client = createStagingClient(useIap);
+      const client = createApiClient(useIap);
       const res = await client.get(endpoint);
       const errors = [];
 
@@ -619,7 +619,7 @@ export async function validateBls(fixture, results) {
   // GET /api/v1/applications/
   console.log('  -> [BLS] GET /api/v1/applications/');
   try {
-    const client = createStagingClient(true);
+    const client = createApiClient(true);
     const res = await client.get('/api/v1/applications/');
     const passed = res.status === 200 || res.status === 404;
     results.push({ file: '/api/v1/applications/', status: res.status, passed, body: null,
@@ -633,7 +633,7 @@ export async function validateBls(fixture, results) {
   // GET /api/v1/applications/upload-urls
   console.log('  -> [BLS] GET /api/v1/applications/upload-urls');
   try {
-    const client = createStagingClient(true);
+    const client = createApiClient(true);
     const res = await client.get('/api/v1/applications/upload-urls');
     const passed = res.status === 200 || res.status === 404 || res.status === 422;
     results.push({ file: '/api/v1/applications/upload-urls', status: res.status, passed, body: null,
@@ -696,7 +696,7 @@ export async function validateGcashRules(fixture, results) {
   catch (err) { results.push({ file: null, status: 0, passed: false, body: null, summary: `Webhook baseline failed: ${err.message}` }); return; }
 
   console.log(`  -> Batch upload (${fixture.files.length} docs)...`);
-  const client = createStagingClient(true);
+  const client = createApiClient(true);
   let status, body;
   try { const res = await client.post('/ai-gateway/batch-upload', payload); status = res.status; body = res.data; }
   catch (err) { results.push({ file: null, status: 0, passed: false, body: null, summary: `POST error: ${err.message}` }); return; }
@@ -801,7 +801,7 @@ export async function validateDedup(fixture, results) {
   catch (err) { results.push({ file: null, status: 0, passed: false, body: null, summary: `Webhook baseline failed: ${err.message}` }); return; }
 
   console.log(`  -> Batch upload (${documents.length} docs: ${fixture.files.length} PRIMARY + ${fixture.supportingFiles?.length || 0} SECONDARY)...`);
-  const client = createStagingClient(true);
+  const client = createApiClient(true);
   let status, body;
   try { const res = await client.post('/ai-gateway/batch-upload', payload); status = res.status; body = res.data; }
   catch (err) { results.push({ file: null, status: 0, passed: false, body: null, summary: `POST error: ${err.message}` }); return; }
@@ -963,7 +963,7 @@ export async function runDedup(fixture, results) {
     results.push({ file: null, status: 0, passed: false, body: null, summary: `Baseline failed: ${err.message}` }); return;
   }
 
-  const client = createStagingClient(true);
+  const client = createApiClient(true);
   const res = await client.post('/ai-gateway/batch-upload', payload);
   if (res.status !== 200 || !res.data?.applicationId) {
     results.push({ file: null, status: res.status, passed: false, body: res.data,
@@ -1031,7 +1031,7 @@ export async function validateCrosscheckDeep(fixture, results) {
   try { baselineCount = await getWebhookBaseline(); }
   catch (err) { results.push({ file: null, status: 0, passed: false, body: null, summary: `Baseline: ${err.message}` }); return; }
 
-  const client = createStagingClient(true);
+  const client = createApiClient(true);
   let status, body;
   try { const res = await client.post('/ai-gateway/batch-upload', payload); status = res.status; body = res.data; }
   catch (err) { results.push({ file: null, status: 0, passed: false, body: null, summary: `POST error: ${err.message}` }); return; }
@@ -1160,7 +1160,7 @@ export async function validatePayslipRules(fixture, results) {
   catch (err) { results.push({ file: null, status: 0, passed: false, body: null, summary: `Webhook baseline failed: ${err.message}` }); return; }
 
   console.log(`  -> Batch upload (${fixture.files.length} payslips)...`);
-  const client = createStagingClient(true);
+  const client = createApiClient(true);
   let status, body;
   try { const res = await client.post('/ai-gateway/batch-upload', payload); status = res.status; body = res.data; }
   catch (err) { results.push({ file: null, status: 0, passed: false, body: null, summary: `POST error: ${err.message}` }); return; }
@@ -1279,6 +1279,57 @@ export async function validatePayslipRules(fixture, results) {
   }
 }
 
+// -- QUALITY-REJECT: assert section-level nulls on quality-rejected document ---
+
+export async function validateQualityReject(fixture, results) {
+  for (const file of fixture.files) {
+    const fileName = file.split('/').pop();
+    console.log(`  -> [QUALITY-REJECT] ${fileName}`);
+    try {
+      const result = await parseDocument(fixture, file);
+      if (result.passed && result.body) {
+        const errors = [];
+
+        // qualityCheck must be non-null with qualityCheckFindings + gs_overallQualityScore_payslip
+        const qc = result.body.qualityCheck;
+        if (!qc || typeof qc !== 'object') {
+          errors.push('qualityCheck is null or missing');
+        } else {
+          if (!Array.isArray(qc.qualityCheckFindings)) {
+            errors.push('qualityCheck.qualityCheckFindings missing or not array');
+          }
+          if (qc.gs_overallQualityScore_payslip === undefined || qc.gs_overallQualityScore_payslip === null) {
+            errors.push('qualityCheck.gs_overallQualityScore_payslip missing');
+          }
+        }
+
+        // Sections that must be null on quality-rejected docs
+        if (result.body.documentData !== null && result.body.documentData !== undefined) {
+          errors.push(`documentData should be null, got ${typeof result.body.documentData}`);
+        }
+        if (result.body.fraudChecks !== null && result.body.fraudChecks !== undefined) {
+          errors.push(`fraudChecks should be null, got ${typeof result.body.fraudChecks}`);
+        }
+        if (result.body.completenessCheck !== null && result.body.completenessCheck !== undefined) {
+          errors.push(`completenessCheck should be null, got ${typeof result.body.completenessCheck}`);
+        }
+
+        if (errors.length) {
+          result.passed = false;
+          result.summary = `HTTP 200 quality-reject validation failed: ${errors.join(', ')}`;
+        } else {
+          result.summary += ` | qualityScore=${qc.gs_overallQualityScore_payslip}`;
+        }
+      }
+      results.push(result);
+      console.log(`    ${result.passed ? 'PASS' : 'FAIL'} ${result.summary}`);
+    } catch (err) {
+      results.push({ file, status: 0, passed: false, body: null, summary: `Error: ${err.message}` });
+    }
+    await sleep(2500);
+  }
+}
+
 // =============================================================================
 // Dispatch table: testType -> keyword function
 // =============================================================================
@@ -1300,4 +1351,5 @@ export const TEST_TYPE_RUNNERS = {
   'dedup-gcash': validateDedup,
   dedup: runDedup,
   'payslip-rules': validatePayslipRules,
+  'quality-reject': validateQualityReject,
 };
