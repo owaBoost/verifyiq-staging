@@ -1,0 +1,167 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "VerifyIQ Regression Session Log",
+  "description": "Session log schema for VerifyIQ regression triage runs",
+  "type": "object",
+  "required": [
+    "session_date",
+    "run_id",
+    "run_type",
+    "environment",
+    "score",
+    "regression_scope",
+    "clean_fixtures",
+    "warnings",
+    "bugs_drafted",
+    "new_patterns",
+    "flagged_fixtures",
+    "missing_fixtures",
+    "overall_verdict"
+  ],
+  "properties": {
+    "session_date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "description": "Date of the session in YYYY-MM-DD format"
+    },
+    "run_id": {
+      "type": "string",
+      "description": "Unique identifier for the regression run"
+    },
+    "run_type": {
+      "type": "string",
+      "enum": ["regression"]
+    },
+    "environment": {
+      "type": "string",
+      "enum": ["dev", "staging", "production", "pr"]
+    },
+    "score": {
+      "type": "object",
+      "required": [
+        "assertions_passed",
+        "assertions_total",
+        "fixtures_passed",
+        "fixtures_total",
+        "duration_seconds"
+      ],
+      "properties": {
+        "assertions_passed": { "type": "integer", "minimum": 0 },
+        "assertions_total": { "type": "integer", "minimum": 0 },
+        "fixtures_passed": { "type": "integer", "minimum": 0 },
+        "fixtures_total": { "type": "integer", "minimum": 0 },
+        "duration_seconds": { "type": "number", "minimum": 0 }
+      }
+    },
+    "regression_scope": {
+      "type": "object",
+      "required": ["categories_tested", "fixture_ids"],
+      "properties": {
+        "categories_tested": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "Bank / Financial",
+              "Employment",
+              "Identity / KYC",
+              "Utility Bills",
+              "KYB",
+              "Fraud",
+              "Infrastructure"
+            ]
+          }
+        },
+        "fixture_ids": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "clean_fixtures": {
+      "type": "array",
+      "description": "All fixtures that passed cleanly this run",
+      "items": {
+        "type": "object",
+        "required": [
+          "fixture_id",
+          "category",
+          "consecutive_clean_runs",
+          "status"
+        ],
+        "properties": {
+          "fixture_id": { "type": "string" },
+          "category": { "type": "string" },
+          "consecutive_clean_runs": { "type": "integer", "minimum": 1 },
+          "status": {
+            "type": "string",
+            "enum": ["Stable", "New", "Watched", "Flagged"]
+          },
+          "previously_stable": { "type": "boolean" }
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "fixture_id",
+          "category",
+          "warning_text",
+          "classification",
+          "fixture_status",
+          "kb_match",
+          "action_taken"
+        ],
+        "properties": {
+          "fixture_id": { "type": "string" },
+          "category": { "type": "string" },
+          "warning_text": { "type": "string" },
+          "classification": {
+            "type": "string",
+            "enum": ["Needs Investigation", "Monitor", "Expected", "Known"]
+          },
+          "fixture_status": {
+            "type": "string",
+            "enum": ["Stable", "New", "Watched", "Flagged"]
+          },
+          "kb_match": { "type": "boolean" },
+          "kb_entry": { "type": ["string", "null"] },
+          "action_taken": { "type": "string" }
+        }
+      }
+    },
+    "bugs_drafted": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["fixture_id", "short_description", "pattern"],
+        "properties": {
+          "fixture_id": { "type": "string" },
+          "short_description": { "type": "string" },
+          "pattern": { "type": "string" }
+        }
+      }
+    },
+    "new_patterns": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "flagged_fixtures": {
+      "type": "array",
+      "description": "Fixtures previously Stable that warned this run",
+      "items": { "type": "string" }
+    },
+    "missing_fixtures": {
+      "type": "array",
+      "description": "Fixtures in KB that did NOT appear in this run",
+      "items": { "type": "string" }
+    },
+    "overall_verdict": {
+      "type": "string",
+      "enum": ["Clean", "Monitor", "Action Required"]
+    },
+    "notes": { "type": "string" }
+  }
+}
