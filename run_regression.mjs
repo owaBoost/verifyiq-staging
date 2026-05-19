@@ -200,11 +200,9 @@ async function main() {
   await createClickUpList();
   await loadClickUpTasks();
 
-  const batchEnvReady = state.env !== 'pr' && GOOGLE_SA_KEY_FILE && WEBHOOK_SERVER_URL;
+  const batchEnvReady = GOOGLE_SA_KEY_FILE && WEBHOOK_SERVER_URL;
   if (batchEnvReady) {
     state.webhookTokenId = await createWebhookToken();
-  } else if (state.env === 'pr') {
-    console.log('  batch skipped (pr environment)');
   } else {
     console.warn('  WEBHOOK_SERVER_URL not set -- batch tests will be skipped');
   }

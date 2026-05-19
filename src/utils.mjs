@@ -185,10 +185,30 @@ export const clickupClient = CLICKUP_TOKEN
   : null;
 
 // -- Callback decryption ------------------------------------------------------
+// The decrypt Cloud Function is a shared service (same URL across all envs).
+// Its IAP audience is DECRYPT_URL, not STAGING_URL — keep a separate token
+// cache so the parser IAP token (aud=STAGING_URL) is unaffected.
+
+let _decryptIapToken = null;
+let _decryptIapTokenExp = 0;
+
+function generateDecryptIapToken() {
+  const now = Math.floor(Date.now() / 1000);
+  if (_decryptIapToken && now < _decryptIapTokenExp - 60) return _decryptIapToken;
+  const sa = JSON.parse(readFileSync(GOOGLE_SA_KEY_FILE, 'utf8'));
+  const exp = now + 3600;
+  _decryptIapToken = jwt.sign(
+    { iss: sa.client_email, sub: sa.client_email, aud: DECRYPT_URL, iat: now, exp, target_audience: DECRYPT_URL },
+    sa.private_key, { algorithm: 'RS256', keyid: sa.private_key_id },
+  );
+  _decryptIapTokenExp = exp;
+  console.log(`  Decrypt IAP token generated (aud=${DECRYPT_URL}, ${_decryptIapToken.length} chars)`);
+  return _decryptIapToken;
+}
 
 export async function decryptCallback(rawBody) {
   const res = await axios.post(DECRYPT_URL, rawBody, {
-    headers: { Authorization: `Bearer ${generateIapToken()}`, 'Content-Type': 'text/plain' },
+    headers: { Authorization: `Bearer ${generateDecryptIapToken()}`, 'Content-Type': 'text/plain' },
     validateStatus: () => true,
   });
   if (res.status !== 200) throw new Error(`Decrypt returned HTTP ${res.status}: ${JSON.stringify(res.data).slice(0, 300)}`);
