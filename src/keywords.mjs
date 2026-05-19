@@ -14,6 +14,7 @@ import {
   state,
   sleep,
   createApiClient,
+  callParseBatch,
   getBaseUrl,
   getWebhookIapToken,
   getWebhookBaseline,
@@ -1341,6 +1342,62 @@ export async function validateQualityReject(fixture, results) {
 // Dispatch table: testType -> keyword function
 // =============================================================================
 
+// -- CONTRACT-NEGATIVE: assert POST /v1/documents/batch rejects the document ---
+
+export async function runContractNegative(fixture, results) {
+  const errorPattern = fixture.expectedError?.errorPattern;
+  if (!errorPattern) {
+    results.push({ file: null, status: 0, passed: false, body: null,
+      summary: 'FAIL — fixture missing expectedError.errorPattern' });
+    return;
+  }
+
+  console.log(`  -> [CONTRACT-NEGATIVE] ${fixture.id} (pattern: "${errorPattern}")`);
+  let res;
+  try {
+    res = await callParseBatch(fixture.files, fixture.documentType);
+  } catch (err) {
+    results.push({ file: null, status: 0, passed: false, body: null,
+      summary: `FAIL — request error: ${err.message}` });
+    return;
+  }
+
+  // POST /v1/documents/batch always returns HTTP 200; rejection is signalled by
+  // results[].ok === false with an error string — not a non-2xx status code.
+  if (res.status !== 200) {
+    console.log(`    FAIL unexpected HTTP ${res.status}`);
+    results.push({ file: null, status: res.status, passed: false, body: res.body,
+      summary: `FAIL unexpected HTTP ${res.status} — ${JSON.stringify(res.body).slice(0, 200)}` });
+    return;
+  }
+
+  const items = Array.isArray(res.body?.results) ? res.body.results : [];
+  const rejected = items.filter(r => r.ok === false);
+  const accepted = items.filter(r => r.ok === true);
+
+  if (accepted.length > 0 && rejected.length === 0) {
+    console.log(`    FAIL HTTP 200 — all items accepted (expected rejection)`);
+    results.push({ file: null, status: res.status, passed: false, body: res.body,
+      summary: `FAIL HTTP 200 — document accepted when it should be rejected (expected "${errorPattern}")` });
+    return;
+  }
+
+  const matchedItem = rejected.find(r =>
+    typeof r.error === 'string' && r.error.toLowerCase().includes(errorPattern.toLowerCase())
+  );
+
+  if (matchedItem) {
+    console.log(`    PASS HTTP 200 rejected — error: "${matchedItem.error}"`);
+    results.push({ file: null, status: res.status, passed: true, body: res.body,
+      summary: `PASS HTTP 200 rejected — error matches "${errorPattern}": "${matchedItem.error}"` });
+  } else {
+    const actualErrors = rejected.map(r => r.error).join('; ');
+    console.log(`    FAIL HTTP 200 rejected but pattern not found — actual: "${actualErrors}"`);
+    results.push({ file: null, status: res.status, passed: false, body: res.body,
+      summary: `FAIL HTTP 200 rejected but "${errorPattern}" not in error — actual: "${actualErrors}"` });
+  }
+}
+
 export const TEST_TYPE_RUNNERS = {
   default: runDefault,
   fraud: validateFraud,
@@ -1359,4 +1416,5 @@ export const TEST_TYPE_RUNNERS = {
   dedup: runDedup,
   'payslip-rules': validatePayslipRules,
   'quality-reject': validateQualityReject,
+  'contract-negative': runContractNegative,
 };

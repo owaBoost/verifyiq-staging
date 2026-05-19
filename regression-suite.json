@@ -851,6 +851,48 @@
         }
       ],
       "section": "Bank / Financial"
+    },
+    {
+      "id": "BS-CONTRACT-PAGECOUNT-001",
+      "documentType": "BankStatement",
+      "testType": "contract-negative",
+      "smoke": true,
+      "description": "66-page bank statement — page count guard",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/GroundTruth/BankStatement/MJRL_MV Dela Cruz_Bank Statement (3).pdf"
+      ],
+      "expectedError": {
+        "errorPattern": "exceeds limit (50)"
+      },
+      "section": "Contract Negative"
+    },
+    {
+      "id": "BS-CONTRACT-MULTIACCOUNT-001",
+      "documentType": "BankStatement",
+      "testType": "contract-negative",
+      "smoke": true,
+      "description": "Tonik multi-account — multi-account guard",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/GroundTruth/Tonik/TC01_Tonik_MultiAccount_PrimaryOnly.pdf"
+      ],
+      "expectedError": {
+        "errorPattern": "multiple account sections"
+      },
+      "section": "Contract Negative"
+    },
+    {
+      "id": "UMID-CONTRACT-MEGAPIXEL-001",
+      "documentType": "UMID",
+      "testType": "contract-negative",
+      "smoke": true,
+      "description": "45.4MP UMID — megapixel guard",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/GroundTruth/ID/UMID/56111 Unified MultiPurpose ID.pdf"
+      ],
+      "expectedError": {
+        "errorPattern": "exceeds limit (40.0MP)"
+      },
+      "section": "Contract Negative"
     }
   ]
 }

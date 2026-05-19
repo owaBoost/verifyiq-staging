@@ -174,6 +174,17 @@ export function createApiClient(useIap = false) {
   return axios.create({ baseURL, headers, validateStatus: () => true });
 }
 
+// -- Batch parse (contract-negative guard testing) ----------------------------
+
+export async function callParseBatch(files, documentType, env) {
+  const client = createApiClient(false);
+  const payload = {
+    items: files.map(file => ({ file, fileType: documentType, classification: 'PRIMARY' })),
+  };
+  const res = await client.post('/v1/documents/batch', payload);
+  return { status: res.status, body: res.data };
+}
+
 // Webhook-scoped client (axios with lenient status validation). Webhook requests
 // attach Authorization headers manually using getWebhookIapToken().
 export function createWebhookClient() {
