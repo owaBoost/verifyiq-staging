@@ -157,10 +157,10 @@ export function createApiClient(useIap = false) {
   } else if (env === 'pr') {
     baseURL = state.prBaseUrl;
     key = VERIFYIQ_KEY; // PR deployments share the staging tenant key
+    authHeader = `Bearer ${key}`; // always attach the API key, like dev
     if (PR_AUTH_MODE === 'id-token') {
-      authHeader = `Bearer ${generatePrIdToken()}`;
+      authHeader = `Bearer ${generatePrIdToken()}`; // override with Cloud Run invoker token
     }
-    // PR_AUTH_MODE === 'none': no Authorization header (Cloud Run allows allUsers)
   } else {
     // staging
     baseURL = STAGING_URL;

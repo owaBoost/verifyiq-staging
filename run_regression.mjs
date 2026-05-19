@@ -94,8 +94,9 @@ let resolvedPrNumber = null;
 if (resolvedEnv === 'pr') {
   let prBaseUrl = null;
   if (explicitBaseUrl) {
-    // --base-url wins over --pr
+    // --base-url wins over --pr for the URL, but --pr still sets the PR number
     prBaseUrl = explicitBaseUrl.replace(/\/$/, '');
+    resolvedPrNumber = prFlagNumber;
   } else if (prFlagNumber) {
     if (!PR_URL_TEMPLATE) {
       console.error('Fatal: --pr requires PR_URL_TEMPLATE to be set in .env');
@@ -199,9 +200,11 @@ async function main() {
   await createClickUpList();
   await loadClickUpTasks();
 
-  const batchEnvReady = GOOGLE_SA_KEY_FILE && WEBHOOK_SERVER_URL;
+  const batchEnvReady = state.env !== 'pr' && GOOGLE_SA_KEY_FILE && WEBHOOK_SERVER_URL;
   if (batchEnvReady) {
     state.webhookTokenId = await createWebhookToken();
+  } else if (state.env === 'pr') {
+    console.log('  batch skipped (pr environment)');
   } else {
     console.warn('  WEBHOOK_SERVER_URL not set -- batch tests will be skipped');
   }
