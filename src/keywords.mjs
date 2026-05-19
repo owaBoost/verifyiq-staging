@@ -117,7 +117,10 @@ export async function batchUpload(fixture) {
     const rawBody = cb.content ?? cb.body ?? JSON.stringify(cb);
     let decrypted;
     try { decrypted = await decryptCallback(rawBody); }
-    catch (err) { allErrors.push(`Decrypt failed: ${err.message}`); continue; }
+    catch (err) {
+      if (err.prSkip) { console.log(`    ${err.message}`); continue; }
+      allErrors.push(`Decrypt failed: ${err.message}`); continue;
+    }
 
     if (decrypted.documentId) {
       const docErrors = validateDocumentCallback(decrypted, gatewayDocType);
@@ -1189,7 +1192,11 @@ export async function validatePayslipRules(fixture, results) {
   for (const cb of callbacks) {
     const rawBody = cb.content ?? cb.body ?? JSON.stringify(cb);
     let decrypted;
-    try { decrypted = await decryptCallback(rawBody); } catch (err) { errors.push(`Decrypt failed: ${err.message}`); continue; }
+    try { decrypted = await decryptCallback(rawBody); }
+    catch (err) {
+      if (err.prSkip) { console.log(`    ${err.message}`); continue; }
+      errors.push(`Decrypt failed: ${err.message}`); continue;
+    }
 
     if (decrypted.documentId) {
       console.log(`    Document callback OK (docId=${decrypted.documentId}, status=${decrypted.status})`);

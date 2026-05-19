@@ -207,6 +207,9 @@ function generateDecryptIapToken() {
 }
 
 export async function decryptCallback(rawBody) {
+  if (state.env === 'pr') {
+    throw Object.assign(new Error('callback decrypt skipped (pr environment)'), { prSkip: true });
+  }
   const res = await axios.post(DECRYPT_URL, rawBody, {
     headers: { Authorization: `Bearer ${generateDecryptIapToken()}`, 'Content-Type': 'text/plain' },
     validateStatus: () => true,
