@@ -179,7 +179,7 @@ export function createApiClient(useIap = false) {
 export async function callParseBatch(files, documentType, env) {
   const client = createApiClient(false);
   const payload = {
-    files: files.map(file => ({ file, fileType: documentType, classification: 'PRIMARY' })),
+    items: files.map(file => ({ file, fileType: documentType, classification: 'PRIMARY' })),
   };
   const res = await client.post('/v1/documents/batch', payload);
   return { status: res.status, body: res.data };
