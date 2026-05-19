@@ -14,6 +14,7 @@ import {
   state,
   sleep,
   createApiClient,
+  callParseBatch,
   getBaseUrl,
   getWebhookIapToken,
   getWebhookBaseline,
@@ -1341,6 +1342,47 @@ export async function validateQualityReject(fixture, results) {
 // Dispatch table: testType -> keyword function
 // =============================================================================
 
+// -- CONTRACT-NEGATIVE: assert POST /v1/documents/batch rejects the document ---
+
+export async function runContractNegative(fixture, results) {
+  const errorPattern = fixture.expectedError?.errorPattern;
+  if (!errorPattern) {
+    results.push({ file: null, status: 0, passed: false, body: null,
+      summary: 'FAIL — fixture missing expectedError.errorPattern' });
+    return;
+  }
+
+  console.log(`  -> [CONTRACT-NEGATIVE] ${fixture.id} (pattern: "${errorPattern}")`);
+  let res;
+  try {
+    res = await callParseBatch(fixture.files, fixture.documentType);
+  } catch (err) {
+    results.push({ file: null, status: 0, passed: false, body: null,
+      summary: `FAIL — request error: ${err.message}` });
+    return;
+  }
+
+  const bodyText = typeof res.body === 'string' ? res.body : JSON.stringify(res.body ?? '');
+
+  if (res.status === 200) {
+    console.log(`    FAIL HTTP 200 — document accepted when it should have been rejected`);
+    results.push({ file: null, status: res.status, passed: false, body: res.body,
+      summary: `FAIL HTTP 200 — document accepted (expected rejection matching "${errorPattern}")` });
+    return;
+  }
+
+  const matched = bodyText.toLowerCase().includes(errorPattern.toLowerCase());
+  if (matched) {
+    console.log(`    PASS HTTP ${res.status} — body contains "${errorPattern}"`);
+    results.push({ file: null, status: res.status, passed: true, body: res.body,
+      summary: `PASS HTTP ${res.status} — body contains "${errorPattern}"` });
+  } else {
+    console.log(`    FAIL HTTP ${res.status} — body does not contain "${errorPattern}"`);
+    results.push({ file: null, status: res.status, passed: false, body: res.body,
+      summary: `FAIL HTTP ${res.status} — body does not contain "${errorPattern}" | body: ${bodyText.slice(0, 200)}` });
+  }
+}
+
 export const TEST_TYPE_RUNNERS = {
   default: runDefault,
   fraud: validateFraud,
@@ -1359,4 +1401,5 @@ export const TEST_TYPE_RUNNERS = {
   dedup: runDedup,
   'payslip-rules': validatePayslipRules,
   'quality-reject': validateQualityReject,
+  'contract-negative': runContractNegative,
 };

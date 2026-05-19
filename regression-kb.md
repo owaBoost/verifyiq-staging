@@ -205,6 +205,9 @@ Flagged (was Stable, now has new warning).
 | infra-callback-echo-bearer-token | Infrastructure | 0 | 0 | - | - | New |
 | infra-callback-echo-publicuserid-uuid | Infrastructure | 0 | 0 | - | - | New |
 | infra-callback-echo-multidoc-batch | Infrastructure | 0 | 0 | - | - | New |
+| BS-CONTRACT-PAGECOUNT-001 | Contract Negative | 0 | 0 | - | - | New |
+| BS-CONTRACT-MULTIACCOUNT-001 | Contract Negative | 0 | 0 | - | - | New |
+| UMID-CONTRACT-MEGAPIXEL-001 | Contract Negative | 0 | 0 | - | - | New |
 
 ---
 
