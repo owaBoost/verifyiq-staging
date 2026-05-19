@@ -29,6 +29,8 @@ import {
   DEV_VERIFYIQ_KEY,
   GOOGLE_SA_KEY_FILE,
   WEBHOOK_SERVER_URL,
+  PR_URL_TEMPLATE,
+  PR_AUTH_MODE,
   createApiClient,
   createWebhookToken,
   deleteWebhookToken,
@@ -71,16 +73,43 @@ const sectionFilter = args.includes('--section') ? args[args.indexOf('--section'
 const dryRun        = args.includes('--dry-run');
 const smokeOnly     = args.includes('--smoke');
 
+const baseUrlFlagIdx = args.indexOf('--base-url');
+const prFlagIdx      = args.indexOf('--pr');
+const explicitBaseUrl = baseUrlFlagIdx !== -1 ? args[baseUrlFlagIdx + 1] : null;
+const prFlagNumber    = prFlagIdx !== -1 ? args[prFlagIdx + 1] : null;
+
 // Resolve target environment: --env flag > TARGET_ENV env var > 'staging'
 const envFlagIdx = args.indexOf('--env');
 const resolvedEnv = (() => {
   const raw = envFlagIdx !== -1 ? args[envFlagIdx + 1] : (process.env.TARGET_ENV || 'staging');
-  if (raw !== 'staging' && raw !== 'dev') {
-    console.error(`Fatal: --env must be "staging" or "dev", got "${raw}"`);
+  if (raw !== 'staging' && raw !== 'dev' && raw !== 'pr') {
+    console.error(`Fatal: --env must be "staging", "dev", or "pr", got "${raw}"`);
     process.exit(1);
   }
   return raw;
 })();
+
+// Resolve PR base URL when --env pr
+let resolvedPrNumber = null;
+if (resolvedEnv === 'pr') {
+  let prBaseUrl = null;
+  if (explicitBaseUrl) {
+    // --base-url wins over --pr
+    prBaseUrl = explicitBaseUrl.replace(/\/$/, '');
+  } else if (prFlagNumber) {
+    if (!PR_URL_TEMPLATE) {
+      console.error('Fatal: --pr requires PR_URL_TEMPLATE to be set in .env');
+      process.exit(1);
+    }
+    prBaseUrl = PR_URL_TEMPLATE.replace('{n}', prFlagNumber).replace(/\/$/, '');
+    resolvedPrNumber = prFlagNumber;
+  } else {
+    console.error('Fatal: --env pr requires --base-url <url> or --pr <number>');
+    process.exit(1);
+  }
+  state.prBaseUrl = prBaseUrl;
+  state.prNumber  = resolvedPrNumber;
+}
 
 // Write resolved env into shared state so all modules read it at call time.
 state.env = resolvedEnv;
@@ -89,10 +118,20 @@ state.env = resolvedEnv;
 // Skipped in dry-run (no API calls are made).
 
 if (!dryRun) {
-  const apiKey = resolvedEnv === 'dev' ? DEV_VERIFYIQ_KEY : VERIFYIQ_KEY;
-  const keyName = resolvedEnv === 'dev' ? 'DEV_VERIFYIQ_API_KEY' : 'VERIFYIQ_API_KEY';
-  const REQUIRED_VARS = { [keyName]: apiKey, GOOGLE_SA_KEY_FILE };
-  const missing = Object.entries(REQUIRED_VARS).filter(([, v]) => !v).map(([k]) => k);
+  const required = {};
+  if (resolvedEnv === 'dev') {
+    required.DEV_VERIFYIQ_API_KEY = DEV_VERIFYIQ_KEY;
+    required.GOOGLE_SA_KEY_FILE   = GOOGLE_SA_KEY_FILE;
+  } else if (resolvedEnv === 'pr') {
+    required.VERIFYIQ_API_KEY = VERIFYIQ_KEY;
+    // GOOGLE_SA_KEY_FILE only needed when PR Cloud Run requires invoker auth.
+    if (PR_AUTH_MODE === 'id-token') required.GOOGLE_SA_KEY_FILE = GOOGLE_SA_KEY_FILE;
+  } else {
+    // staging
+    required.VERIFYIQ_API_KEY   = VERIFYIQ_KEY;
+    required.GOOGLE_SA_KEY_FILE = GOOGLE_SA_KEY_FILE;
+  }
+  const missing = Object.entries(required).filter(([, v]) => !v).map(([k]) => k);
   if (missing.length) {
     console.error(`Fatal: missing required environment variables: ${missing.join(', ')}`);
     process.exit(1);
@@ -144,7 +183,7 @@ async function main() {
   if (dryRun) {
     const { getBaseUrl } = await import('./src/utils.mjs');
     console.log(`\n-- Dry run --`);
-    console.log(`   env  : ${resolvedEnv}`);
+    console.log(`   env  : ${resolvedEnv}${resolvedPrNumber ? ` (PR #${resolvedPrNumber})` : ''}`);
     console.log(`   url  : ${getBaseUrl()}`);
     console.log(`   smoke: ${smokeOnly}`);
     console.log(`   fixtures that would be tested:\n`);

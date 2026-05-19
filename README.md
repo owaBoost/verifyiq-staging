@@ -1,8 +1,8 @@
 # VerifyIQ Regression Suite
 
 Automated regression runner for the VerifyIQ API. Loops through ~62 permanent
-fixtures in `regression-suite.json`, sends each to the staging or dev API, and
-posts results to ClickUp and Slack.
+fixtures in `regression-suite.json`, sends each to the staging, dev, or PR
+preview API, and posts results to ClickUp and Slack.
 
 ## Setup
 
@@ -31,19 +31,28 @@ node run_regression.mjs --env dev
 # Smoke subset (7 fixtures) against dev — fast first-check
 node run_regression.mjs --env dev --smoke
 
+# PR preview environment — build URL from PR number (uses PR_URL_TEMPLATE)
+node run_regression.mjs --env pr --pr 487 --smoke
+
+# PR preview environment — explicit URL (CI usage)
+node run_regression.mjs --env pr --base-url https://ai-parser-pr-487-z6thvhgnxa-uc.a.run.app --smoke
+
 # Single fixture
 node run_regression.mjs --fixture BS-BDO-001
 
 # Dry run — list fixtures without sending requests
 node run_regression.mjs --dry-run
 node run_regression.mjs --env dev --smoke --dry-run
+node run_regression.mjs --env pr --pr 487 --smoke --dry-run
 ```
 
 ### Options
 
 | Flag | Description |
 |---|---|
-| `--env <staging\|dev>` | Target environment. Overrides `TARGET_ENV` env var. Default: `staging`. |
+| `--env <staging\|dev\|pr>` | Target environment. Overrides `TARGET_ENV` env var. Default: `staging`. |
+| `--pr <number>` | PR number for `--env pr`; builds URL from `PR_URL_TEMPLATE`. |
+| `--base-url <url>` | Explicit base URL for `--env pr` (takes precedence over `--pr`). |
 | `--smoke` | Run only the 7 smoke-tagged fixtures (fast sanity check). |
 | `--fixture <id>` | Run a single fixture by ID (e.g. `--fixture BS-BDO-001`). |
 | `--dry-run` | List fixtures and target URL without sending any requests. |
@@ -53,12 +62,40 @@ every time.
 
 ## Environments
 
-| Environment | Base URL | API Key var |
-|---|---|---|
-| staging (default) | `STAGING_URL` | `VERIFYIQ_API_KEY` |
-| dev | `DEV_URL` | `DEV_VERIFYIQ_API_KEY` |
+| Environment | Base URL | API Key var | Auth |
+|---|---|---|---|
+| staging (default) | `STAGING_URL` | `VERIFYIQ_API_KEY` | IAP (batch) / API key |
+| dev | `DEV_URL` | `DEV_VERIFYIQ_API_KEY` | API key only |
+| pr | `--base-url` or `PR_URL_TEMPLATE` | `VERIFYIQ_API_KEY` | None (default) or Cloud Run ID token (`PR_AUTH_MODE=id-token`) |
 
-Dev runs have no webhook server — batch tests are skipped automatically.
+Dev and PR environments have no webhook server — batch tests are skipped
+automatically when `WEBHOOK_SERVER_URL` is unset.
+
+### PR environments
+
+PR Cloud Run services have ephemeral URLs. Two ways to target them:
+
+- `--pr 487` — resolves the URL using `PR_URL_TEMPLATE` from `.env`
+  (template: `https://ai-parser-pr-{n}-z6thvhgnxa-uc.a.run.app`)
+- `--base-url <url>` — explicit URL, intended for CI pipelines that know the
+  exact service URL
+
+PR Cloud Run auth defaults to unauthenticated (`PR_AUTH_MODE=none`). Set
+`PR_AUTH_MODE=id-token` if the service requires Cloud Run invoker auth (requires
+`GOOGLE_SA_KEY_FILE`). Verify the correct mode against a live PR environment.
+
+## Reporting
+
+All environments share one ClickUp folder (`CLICKUP_FOLDER_ID`). Each run
+creates a dated list tagged with the environment:
+
+| Environment | ClickUp list name |
+|---|---|
+| staging | `Regression [staging] YYYY-MM-DD` |
+| dev | `Regression [dev] YYYY-MM-DD` |
+| pr | `Regression [pr-487] YYYY-MM-DD` |
+
+Slack summary header is also tagged with the environment name.
 
 ## Smoke fixtures
 
@@ -88,12 +125,3 @@ All ~62 fixtures live in `regression-suite.json` and point to files in
 - **KYB** — DTIRegistrationCertificate
 - **Fraud** — fraud-detection fixtures across ID and bank doc types
 - **Infrastructure** — health, security, cache validation
-
-## Reporting
-
-- **ClickUp**: a new dated list is created per run (`Regression YYYY-MM-DD` for
-  staging, `Regression [dev] YYYY-MM-DD` for dev). Configure separate
-  `DEV_CLICKUP_FOLDER_ID` / `DEV_CLICKUP_LIST_ID` to keep dev noise out of
-  staging history.
-- **Slack**: summary posted to `SLACK_WEBHOOK_URL` (optional). Header and
-  ClickUp link are tagged with the environment name.

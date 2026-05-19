@@ -6,9 +6,8 @@ import axios from 'axios';
 import {
   state,
   clickupClient,
+  CLICKUP_FOLDER_ID,
   CLICKUP_LIST_ID,
-  DEV_CLICKUP_LIST_ID,
-  DEV_CLICKUP_FOLDER_ID,
   SLACK_WEBHOOK_URL,
 } from './utils.mjs';
 import { extractKeyFields } from './validators.mjs';
@@ -24,29 +23,21 @@ let existingTasks = {}; // name-prefix -> task id
 // as CLICKUP_LIST_ID. On subsequent runs the same day it finds and reuses the
 // existing dated list so task updates hit the correct list.
 
+// Returns the env tag used in ClickUp list names and Slack messages.
+function getEnvTag() {
+  if (state.env === 'pr') return `[pr-${state.prNumber ?? 'unknown'}]`;
+  if (state.env === 'dev') return '[dev]';
+  return '[staging]';
+}
+
 export async function createClickUpList() {
   if (!clickupClient) return;
-  const isDev = state.env === 'dev';
   const dateStr = new Date().toISOString().slice(0, 10);
-  const envTag = isDev ? ' [dev]' : '';
-  const listName = `Regression${envTag} ${dateStr}`;
-
-  // Initialise runListId to the env-appropriate default
-  runListId = isDev ? DEV_CLICKUP_LIST_ID : CLICKUP_LIST_ID;
-
+  const listName = `Regression ${getEnvTag()} ${dateStr}`;
+  // All environments share one folder — no per-env folder IDs needed.
+  const folderId = CLICKUP_FOLDER_ID;
   try {
-    // If a DEV_CLICKUP_FOLDER_ID is explicitly configured, use it directly.
-    let folderId;
-    if (isDev && process.env.DEV_CLICKUP_FOLDER_ID) {
-      folderId = DEV_CLICKUP_FOLDER_ID;
-    } else {
-      // Find the folder that contains the env-appropriate base list
-      const { data: listData } = await clickupClient.get(`/list/${runListId}`);
-      folderId = listData.folder?.id;
-      if (!folderId) { console.warn('  Could not find folder_id -- using default list'); return; }
-    }
-
-    // Check if today's dated list already exists in that folder
+    // Check if today's tagged list already exists in the folder
     const { data: folderLists } = await clickupClient.get(`/folder/${folderId}/list`);
     const existing = (folderLists.lists || []).find(l => l.name === listName);
     if (existing) {
@@ -491,8 +482,10 @@ export function buildSlackMessage(fixtureResults, totalPassed, totalFailed, allW
     ? truncate(`*⚠️ Warnings (${allWarnings.length}):*\n${allWarnings.map(w => `• ${w}`).join('\n')}`, 2900)
     : `*⚠️ Warnings (0):*\nNone`;
 
-  const envLabel = state.env === 'dev' ? 'Dev' : 'Staging';
-  const envTag   = state.env === 'dev' ? ' [dev]' : '';
+  const envTag   = getEnvTag();
+  const envLabel = state.env === 'pr'  ? `PR #${state.prNumber ?? '?'}`
+                 : state.env === 'dev' ? 'Dev'
+                 : 'Staging';
   return [
     { type: 'header', text: { type: 'plain_text', text: `VerifyIQ ${envLabel} Regression — ${timeStr} UTC` } },
     {
@@ -509,7 +502,7 @@ export function buildSlackMessage(fixtureResults, totalPassed, totalFailed, allW
     { type: 'divider' },
     { type: 'section', text: { type: 'mrkdwn', text: failedText } },
     { type: 'section', text: { type: 'mrkdwn', text: warningText } },
-    { type: 'section', text: { type: 'mrkdwn', text: `*📋 ClickUp:* Regression${envTag} ${dateStr}` } },
+    { type: 'section', text: { type: 'mrkdwn', text: `*📋 ClickUp:* Regression ${envTag} ${dateStr}` } },
   ];
 }
 
