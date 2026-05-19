@@ -1,9 +1,9 @@
 {
-  "description": "VerifyIQ staging regression suite — all fixtures use gs://verifyiq-internal-testing/QA/ as the canonical test data bucket",
-  "staging_url": "https://ai-boostform-api-1019050071398.us-central1.run.app",
+  "description": "VerifyIQ regression suite — all fixtures use gs://verifyiq-internal-testing/QA/ as the canonical test data bucket",
   "fixtures": [
     {
       "id": "BS-BDO-001",
+      "smoke": true,
       "documentType": "BankStatement",
       "testType": "default",
       "description": "BDO bank statement — default parse + batch upload",
@@ -64,6 +64,7 @@
     },
     {
       "id": "BS-DEEP-BDO-001",
+      "smoke": true,
       "documentType": "BankStatement",
       "testType": "bank-deep",
       "description": "BDO bank statement — deep transaction + calculated field validation",
@@ -232,6 +233,96 @@
       "section": "Employment"
     },
     {
+      "id": "PS-GCASH-SM-001",
+      "documentType": "Payslip",
+      "testType": "default",
+      "description": "GCash semi-monthly payslip — Blade Asia, Maria Garcia, 6 payslips covering Jan 1 – Mar 31, 2026",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip/Blade Asia_Maria Garcia Payslip_2026-01-15.pdf",
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip/Blade Asia_Maria Garcia Payslip_2026-01-31.pdf",
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip/Blade Asia_Maria Garcia Payslip_2026-02-15.pdf",
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip/Blade Asia_Maria Garcia Payslip_2026-02-28.pdf",
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip/Blade Asia_Maria Garcia Payslip_2026-03-15.pdf",
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip/Blade Asia_Maria Garcia Payslip_2026-03-31.pdf"
+      ],
+      "expectedComputedFields": {
+        "PAYSLIP": {
+          "gs_180days_valid_payslip": 1,
+          "gs_90days_consec_payslip": 1,
+          "gs_90days_oneemployer_payslip": 1,
+          "gs_90days_gross_payslip": 60164.1,
+          "gs_90days_onetime_payslip": 4500,
+          "gs_90days_personalexpense_payslip": 38426.26,
+          "gs_inferredincome_payslip": 7245.95
+        }
+      },
+      "clickupTaskUrl": "https://app.clickup.com/t/86b9e4h08",
+      "section": "Employment"
+    },
+    {
+      "id": "PS-GCASH-MO-001",
+      "documentType": "Payslip",
+      "testType": "default",
+      "description": "GCash monthly payslip — Alorica Teleservices, Maria Santos Garcia, 3 payslips covering Jan 1 – Mar 31, 2026",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip_January2026_MARIA_SANTOS_GARCIA.pdf",
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip_February2026_MARIA_SANTOS_GARCIA.pdf",
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip_March2026_MARIA_SANTOS_GARCIA.pdf"
+      ],
+      "expectedComputedFields": {
+        "PAYSLIP": {
+          "gs_180days_valid_payslip": 1,
+          "gs_90days_consec_payslip": 1,
+          "gs_90days_oneemployer_payslip": 1,
+          "gs_90days_gross_payslip": 86795.62,
+          "gs_90days_onetime_payslip": 0,
+          "gs_inferredincome_payslip": 10145.11
+        }
+      },
+      "clickupTaskUrl": "https://app.clickup.com/t/86b9e4h4v",
+      "section": "Employment"
+    },
+    {
+      "id": "PS-TC001",
+      "documentType": "Payslip",
+      "testType": "payslip-rules",
+      "description": "TC-001: Semi-monthly payslip batch — Blade Asia, Maria Garcia, 6 payslips. Asserts PAYSLIP computedFields (90/180-day rules, one-employer, gross, onetime, personalexpense, inferredincome)",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip/Blade Asia_Maria Garcia Payslip_2026-01-15.pdf",
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip/Blade Asia_Maria Garcia Payslip_2026-01-31.pdf",
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip/Blade Asia_Maria Garcia Payslip_2026-02-15.pdf",
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip/Blade Asia_Maria Garcia Payslip_2026-02-28.pdf",
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip/Blade Asia_Maria Garcia Payslip_2026-03-15.pdf",
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip/Blade Asia_Maria Garcia Payslip_2026-03-31.pdf"
+      ],
+      "clickupTaskUrl": "https://app.clickup.com/t/86b9e4h08",
+      "section": "Employment"
+    },
+    {
+      "id": "PS-TC003",
+      "documentType": "Payslip",
+      "testType": "payslip-rules",
+      "description": "TC-003: Monthly payslip batch — Alorica, Maria Santos Garcia, 3 payslips. Asserts PAYSLIP computedFields (90/180-day rules, one-employer, gross, onetime, personalexpense, inferredincome)",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip_January2026_MARIA_SANTOS_GARCIA.pdf",
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip_February2026_MARIA_SANTOS_GARCIA.pdf",
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip_March2026_MARIA_SANTOS_GARCIA.pdf"
+      ],
+      "clickupTaskUrl": "https://app.clickup.com/t/86b9gh6ud",
+      "section": "Employment"
+    },
+    {
+      "id": "PS-QR-001",
+      "documentType": "Payslip",
+      "testType": "quality-reject",
+      "description": "TC-04: Section-level null preserved on quality-rejected document (API spec v1.0.16) — blurry payslip, expect qualityCheck populated, documentData/fraudChecks/completenessCheck null",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/Negative Test/doc_blurry.jpg"
+      ],
+      "skipBatch": true,
+      "section": "Employment"
+    },
+    {
       "id": "COE-001",
       "documentType": "CertificateOfEmployment",
       "testType": "default",
@@ -245,6 +336,7 @@
     },
     {
       "id": "PHILID-001",
+      "smoke": true,
       "documentType": "PhilippineNationalID",
       "testType": "default",
       "description": "Philippine National ID — default parse",
@@ -257,6 +349,7 @@
     },
     {
       "id": "PHILID-FRAUD-TAMPERED-001",
+      "smoke": true,
       "documentType": "PhilippineNationalID",
       "testType": "fraud",
       "pipeline": {
@@ -533,6 +626,7 @@
     },
     {
       "id": "HEALTH-001",
+      "smoke": true,
       "documentType": "health",
       "testType": "health",
       "description": "Health endpoints — startup, live, ready, detailed, circuit breakers",
@@ -549,6 +643,7 @@
     },
     {
       "id": "SEC-001",
+      "smoke": true,
       "documentType": "BankStatement",
       "testType": "security",
       "description": "Security headers + auth (200, 401, 403)",
@@ -559,6 +654,7 @@
     },
     {
       "id": "CACHE-001",
+      "smoke": true,
       "documentType": "BankStatement",
       "testType": "cache",
       "pipeline": {

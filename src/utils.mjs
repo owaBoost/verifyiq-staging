@@ -10,19 +10,47 @@ import { readFileSync } from 'fs';
 // -- Config -------------------------------------------------------------------
 
 export const STAGING_URL = (process.env.STAGING_URL || 'https://ai-boostform-api-1019050071398.us-central1.run.app').replace(/\/$/, '');
-export const VERIFYIQ_KEY = process.env.VERIFYIQ_API_KEY;
+export const DEV_URL     = (process.env.DEV_URL || 'https://parser-dev.boostkh.com').replace(/\/$/, '');
+
+// PR environments are ephemeral; their URL is resolved at runtime from
+// --base-url / --pr flags and stored in state.prBaseUrl (set by orchestrator).
+export const PR_URL_TEMPLATE = (process.env.PR_URL_TEMPLATE || '').trim();
+
+export const VERIFYIQ_KEY     = process.env.VERIFYIQ_API_KEY;
+export const DEV_VERIFYIQ_KEY = process.env.DEV_VERIFYIQ_API_KEY;
+
 export const GOOGLE_SA_KEY_FILE = process.env.GOOGLE_SA_KEY_FILE;
-export const CLICKUP_TOKEN = process.env.CLICKUP_API_TOKEN;
+export const CLICKUP_TOKEN      = process.env.CLICKUP_API_TOKEN;
+
+// All runs share one ClickUp folder; the list is named per env + date.
 export const CLICKUP_FOLDER_ID = process.env.CLICKUP_FOLDER_ID || '90147720582';
-export const CLICKUP_LIST_ID = process.env.CLICKUP_LIST_ID || '901415181079';
+export const CLICKUP_LIST_ID   = process.env.CLICKUP_LIST_ID   || '901415181079';
+
 export const WEBHOOK_SERVER_URL = (process.env.WEBHOOK_SERVER_URL || '').trim().replace(/\/$/, '');
-export const DECRYPT_URL = process.env.DECRYPT_URL || 'https://us-central1-boost-capital-staging.cloudfunctions.net/verifyiq-gateway/utils/decrypt';
-export const SLACK_WEBHOOK_URL = (process.env.SLACK_WEBHOOK_URL || '').trim();
+export const DECRYPT_URL        = process.env.DECRYPT_URL || 'https://us-central1-boost-capital-staging.cloudfunctions.net/verifyiq-gateway/utils/decrypt';
+export const SLACK_WEBHOOK_URL  = (process.env.SLACK_WEBHOOK_URL || '').trim();
+
+// PR Cloud Run auth mode.
+// "none"     — unauthenticated (default; Cloud Run service must allow allUsers).
+// "id-token" — attach a Google-signed ID token for the Cloud Run invoker role.
+//              Requires GOOGLE_SA_KEY_FILE.
+// TODO: verify the correct mode against a live PR environment.
+export const PR_AUTH_MODE = (process.env.PR_AUTH_MODE || 'none').trim().toLowerCase();
 
 // Mutable shared state (set by orchestrator, read by keywords/reporters)
 export const state = {
   webhookTokenId: null,
+  env: 'staging', // resolved from --env / TARGET_ENV; one of: staging | dev | pr
+  prBaseUrl: null, // set by orchestrator for --env pr
+  prNumber:  null, // set by orchestrator when --pr <n> is used
 };
+
+// Returns the base URL for the resolved environment.
+export function getBaseUrl() {
+  if (state.env === 'dev') return DEV_URL;
+  if (state.env === 'pr')  return state.prBaseUrl;
+  return STAGING_URL;
+}
 
 // -- Doc-type mapping ---------------------------------------------------------
 
@@ -94,15 +122,56 @@ export function getWebhookIapToken() {
   return _webhookIapToken;
 }
 
+// -- PR Cloud Run ID token (Cloud Run invoker auth) ---------------------------
+// Only used when PR_AUTH_MODE=id-token. The audience is the Cloud Run service
+// URL (state.prBaseUrl), which differs from IAP that uses STAGING_URL.
+
+let _prIdToken = null;
+let _prIdTokenForUrl = null; // invalidate when prBaseUrl changes
+
+export function generatePrIdToken() {
+  if (_prIdToken && _prIdTokenForUrl === state.prBaseUrl) return _prIdToken;
+  _prIdToken = null;
+  _prIdTokenForUrl = state.prBaseUrl;
+  const sa = JSON.parse(readFileSync(GOOGLE_SA_KEY_FILE, 'utf8'));
+  const now = Math.floor(Date.now() / 1000);
+  _prIdToken = jwt.sign(
+    { iss: sa.client_email, sub: sa.client_email, aud: state.prBaseUrl, iat: now, exp: now + 3600 },
+    sa.private_key, { algorithm: 'RS256', keyid: sa.private_key_id },
+  );
+  console.log(`  PR Cloud Run ID token generated (aud=${state.prBaseUrl}, ${_prIdToken.length} chars)`);
+  return _prIdToken;
+}
+
 // -- Axios clients ------------------------------------------------------------
 
-export function createStagingClient(useIap = false) {
-  const authHeader = useIap ? `Bearer ${generateIapToken()}` : `Bearer ${VERIFYIQ_KEY}`;
-  return axios.create({
-    baseURL: STAGING_URL,
-    headers: { Authorization: authHeader, 'X-Tenant-Token': VERIFYIQ_KEY, 'Content-Type': 'application/json' },
-    validateStatus: () => true,
-  });
+export function createApiClient(useIap = false) {
+  const env = state.env;
+  let baseURL, key, authHeader;
+
+  if (env === 'dev') {
+    baseURL = DEV_URL;
+    key = DEV_VERIFYIQ_KEY;
+    // Dev does not use IAP — authenticate with the API key only.
+    authHeader = `Bearer ${key}`;
+  } else if (env === 'pr') {
+    baseURL = state.prBaseUrl;
+    key = VERIFYIQ_KEY; // PR deployments share the staging tenant key
+    authHeader = `Bearer ${key}`; // always attach the API key, like dev
+    if (PR_AUTH_MODE === 'id-token') {
+      authHeader = `Bearer ${generatePrIdToken()}`; // override with Cloud Run invoker token
+    }
+  } else {
+    // staging
+    baseURL = STAGING_URL;
+    key = VERIFYIQ_KEY;
+    authHeader = useIap ? `Bearer ${generateIapToken()}` : `Bearer ${key}`;
+  }
+
+  const headers = { 'X-Tenant-Token': key, 'Content-Type': 'application/json' };
+  if (authHeader) headers.Authorization = authHeader;
+
+  return axios.create({ baseURL, headers, validateStatus: () => true });
 }
 
 // Webhook-scoped client (axios with lenient status validation). Webhook requests
@@ -116,10 +185,33 @@ export const clickupClient = CLICKUP_TOKEN
   : null;
 
 // -- Callback decryption ------------------------------------------------------
+// The decrypt Cloud Function is a shared service (same URL across all envs).
+// Its IAP audience is DECRYPT_URL, not STAGING_URL — keep a separate token
+// cache so the parser IAP token (aud=STAGING_URL) is unaffected.
+
+let _decryptIapToken = null;
+let _decryptIapTokenExp = 0;
+
+function generateDecryptIapToken() {
+  const now = Math.floor(Date.now() / 1000);
+  if (_decryptIapToken && now < _decryptIapTokenExp - 60) return _decryptIapToken;
+  const sa = JSON.parse(readFileSync(GOOGLE_SA_KEY_FILE, 'utf8'));
+  const exp = now + 3600;
+  _decryptIapToken = jwt.sign(
+    { iss: sa.client_email, sub: sa.client_email, aud: DECRYPT_URL, iat: now, exp, target_audience: DECRYPT_URL },
+    sa.private_key, { algorithm: 'RS256', keyid: sa.private_key_id },
+  );
+  _decryptIapTokenExp = exp;
+  console.log(`  Decrypt IAP token generated (aud=${DECRYPT_URL}, ${_decryptIapToken.length} chars)`);
+  return _decryptIapToken;
+}
 
 export async function decryptCallback(rawBody) {
+  if (state.env === 'pr') {
+    throw Object.assign(new Error('callback decrypt skipped (pr environment)'), { prSkip: true });
+  }
   const res = await axios.post(DECRYPT_URL, rawBody, {
-    headers: { Authorization: `Bearer ${generateIapToken()}`, 'Content-Type': 'text/plain' },
+    headers: { Authorization: `Bearer ${generateDecryptIapToken()}`, 'Content-Type': 'text/plain' },
     validateStatus: () => true,
   });
   if (res.status !== 200) throw new Error(`Decrypt returned HTTP ${res.status}: ${JSON.stringify(res.data).slice(0, 300)}`);
