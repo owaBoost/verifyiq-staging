@@ -258,18 +258,19 @@ export async function deleteWebhookToken(uuid) {
 
 export async function getWebhookBaseline() {
   const res = await axios.get(
-    `${WEBHOOK_SERVER_URL}/token/${state.webhookTokenId}/requests?per_page=200`,
+    `${WEBHOOK_SERVER_URL}/token/${state.webhookTokenId}/requests?per_page=2000`,
     { headers: { Authorization: `Bearer ${getWebhookIapToken()}` }, validateStatus: () => true }
   );
+  if (res.status !== 200) throw new Error(`Webhook baseline HTTP ${res.status}: ${JSON.stringify(res.data).slice(0, 200)}`);
   return res.data?.data?.length ?? 0;
 }
 
-export async function pollWebhookCallbacks(baselineCount, expectedCount, applicationId, timeoutMs = 120_000) {
+export async function pollWebhookCallbacks(baselineCount, expectedCount, applicationId, timeoutMs = 300_000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     await sleep(3_000);
     const res = await axios.get(
-      `${WEBHOOK_SERVER_URL}/token/${state.webhookTokenId}/requests?per_page=200`,
+      `${WEBHOOK_SERVER_URL}/token/${state.webhookTokenId}/requests?per_page=2000`,
       { headers: { Authorization: `Bearer ${getWebhookIapToken()}` }, validateStatus: () => true }
     );
     const all = res.data?.data ?? [];
