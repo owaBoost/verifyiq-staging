@@ -893,6 +893,56 @@
         "errorPattern": "exceeds limit (40.0MP)"
       },
       "section": "Contract Negative"
+    },
+    {
+      "id": "MAYORS-001",
+      "smoke": true,
+      "documentType": "MayorsPermit",
+      "testType": "default",
+      "description": "Mayor's Permit — DAGH'AMI RESTAURANT, Loay, Bohol (BP-2024-00542-0)",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/GroundTruth/Mayor's Permit/2024_12_12_mayors_permit.jpeg"
+      ],
+      "assertions": [
+        "permit_number == 'BP-2024-00542-0'",
+        "business_name == 'DAGH\\'AMI RESTAURANT'",
+        "owner_name == 'MELISSA GRACE D. ACUÑA'",
+        "valid_to_date == 'December 31, 2024'"
+      ],
+      "section": "KYB"
+    },
+    {
+      "id": "SEC-CERT-001",
+      "documentType": "SECCertificateOfIncorporation",
+      "testType": "default",
+      "skipBatch": true,
+      "description": "SEC Certificate of Incorporation — PHISO INC. (CN201606553)",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/GroundTruth/SEC COI/55513_Applicant12345_SEC_COI.pdf"
+      ],
+      "assertions": [
+        "company_name == 'PHILIPPINE INTERNATIONAL STUDIES ORGANIZATION (PHISO) INC.'",
+        "company_registration_no == 'CN201606553'",
+        "witness_date == 'INT day of April, Twenty Sixteen'"
+      ],
+      "section": "KYB"
+    },
+    {
+      "id": "BIREXEMPT-001",
+      "documentType": "BIRExemptionCertificate",
+      "testType": "default",
+      "skipBatch": true,
+      "description": "BIR Exemption Certificate — two-file fixture (Form 2303 PDF + page 2 JPEG)",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/GroundTruth/BIR/Certificate of Registration (BIR Form 2303).pdf",
+        "gs://verifyiq-internal-testing/QA/GroundTruth/BIR/BIR cert page 2 (1).jpeg"
+      ],
+      "assertions": [
+        "rdo_code present (page 1: '44', page 2: '54B')",
+        "tin == '315-668-376-00000' (page 2)",
+        "taxpayer_name == 'TAÑAG, KATHREZE ESEQUE' (page 2)"
+      ],
+      "section": "KYB"
     }
   ]
 }

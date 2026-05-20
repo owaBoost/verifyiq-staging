@@ -219,6 +219,31 @@ export const RESPONSE_VALIDATORS = {
     if (w2) r.warnings.push(w2);
     return r;
   },
+  MayorsPermit: (body) => {
+    const r = requireSummaryOCR(body); if (r.errors.length) return r;
+    const ocr = body.summaryOCR[0] || {};
+    const w1 = softCheck(ocr, 'permit_number', null, 'permit_number');
+    if (w1) r.warnings.push(w1);
+    const w2 = softCheck(ocr, 'business_name', null, 'business_name');
+    if (w2) r.warnings.push(w2);
+    return r;
+  },
+  SECCertificateOfIncorporation: (body) => {
+    const r = requireSummaryOCR(body); if (r.errors.length) return r;
+    const ocr = body.summaryOCR[0] || {};
+    const w1 = softCheck(ocr, 'company_name', null, 'company_name');
+    if (w1) r.warnings.push(w1);
+    const w2 = softCheck(ocr, 'company_registration_no', null, 'company_registration_no');
+    if (w2) r.warnings.push(w2);
+    return r;
+  },
+  BIRExemptionCertificate: (body) => {
+    const r = requireSummaryOCR(body); if (r.errors.length) return r;
+    const ocr = body.summaryOCR[0] || {};
+    const w1 = softCheck(ocr, 'rdo_code', null, 'rdo_code');
+    if (w1) r.warnings.push(w1);
+    return r;
+  },
 };
 
 // -- Key field extraction (used by ClickUp description builder) --------------

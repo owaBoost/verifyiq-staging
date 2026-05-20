@@ -208,6 +208,9 @@ Flagged (was Stable, now has new warning).
 | BS-CONTRACT-PAGECOUNT-001 | Contract Negative | 0 | 0 | - | - | New |
 | BS-CONTRACT-MULTIACCOUNT-001 | Contract Negative | 0 | 0 | - | - | New |
 | UMID-CONTRACT-MEGAPIXEL-001 | Contract Negative | 0 | 0 | - | - | New |
+| MAYORS-001 | KYB | 2 | 0 | - | - | New |
+| SEC-CERT-001 | KYB | 2 | 0 | - | - | New |
+| BIREXEMPT-001 | KYB | 1 | 0 | - | - | New |
 
 ---
 
