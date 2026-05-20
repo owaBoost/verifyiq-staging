@@ -200,11 +200,11 @@ Flagged (was Stable, now has new warning).
 | CROSS-001 | Infrastructure | 1 | 3 | 2026-04-16 | - | New |
 | BLS-001 | Infrastructure | 2 | 3 | 2026-04-16 | - | New |
 | DEDUP-001 | Infrastructure | 1 | 3 | 2026-04-16 | - | New |
-| infra-callback-echo-publicuserid-numeric | Infrastructure | 0 | 0 | - | - | New |
-| infra-callback-echo-submissionid | Infrastructure | 0 | 0 | - | - | New |
-| infra-callback-echo-bearer-token | Infrastructure | 0 | 0 | - | - | New |
-| infra-callback-echo-publicuserid-uuid | Infrastructure | 0 | 0 | - | - | New |
-| infra-callback-echo-multidoc-batch | Infrastructure | 0 | 0 | - | - | New |
+| infra-callback-echo-publicuserid-numeric | Infrastructure | 1 | 0 | - | - | New |
+| infra-callback-echo-submissionid | Infrastructure | 1 | 0 | - | - | New |
+| infra-callback-echo-bearer-token | Infrastructure | 1 | 0 | - | - | New |
+| infra-callback-echo-publicuserid-uuid | Infrastructure | 1 | 0 | - | - | New |
+| infra-callback-echo-multidoc-batch | Infrastructure | 1 | 0 | - | - | New |
 | BS-CONTRACT-PAGECOUNT-001 | Contract Negative | 0 | 0 | - | - | New |
 | BS-CONTRACT-MULTIACCOUNT-001 | Contract Negative | 0 | 0 | - | - | New |
 | UMID-CONTRACT-MEGAPIXEL-001 | Contract Negative | 0 | 0 | - | - | New |

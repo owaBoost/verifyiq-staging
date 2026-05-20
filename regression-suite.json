@@ -943,6 +943,76 @@
         "taxpayer_name == 'TAÑAG, KATHREZE ESEQUE' (page 2)"
       ],
       "section": "KYB"
+    },
+    {
+      "id": "infra-callback-echo-publicuserid-numeric",
+      "documentType": "BankStatement",
+      "testType": "callback-echo",
+      "smoke": false,
+      "description": "Callback echo — numeric publicUserId must round-trip verbatim (origin: GCash GGIVES repro, ticket 86b9fkm0u)",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/BDO_BankStatement.png"
+      ],
+      "echoField": "publicUserId",
+      "echoValue": "7890123456",
+      "section": "Infrastructure"
+    },
+    {
+      "id": "infra-callback-echo-publicuserid-uuid",
+      "documentType": "BankStatement",
+      "testType": "callback-echo",
+      "smoke": false,
+      "description": "Callback echo — UUID publicUserId must round-trip verbatim (ticket 86b9fkm0u)",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/BDO_BankStatement.png"
+      ],
+      "echoField": "publicUserId",
+      "echoValue": "550e8400-e29b-41d4-a716-446655440000",
+      "section": "Infrastructure"
+    },
+    {
+      "id": "infra-callback-echo-submissionid",
+      "documentType": "BankStatement",
+      "testType": "callback-echo",
+      "smoke": false,
+      "description": "Callback echo — submissionId must round-trip verbatim (ticket 86b9fkm0u)",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/BDO_BankStatement.png"
+      ],
+      "echoField": "submissionId",
+      "echoValue": "regression-echo-sub-001",
+      "section": "Infrastructure"
+    },
+    {
+      "id": "infra-callback-echo-bearer-token",
+      "documentType": "BankStatement",
+      "testType": "callback-echo",
+      "smoke": false,
+      "description": "Callback echo — authorization field must round-trip verbatim at both listeners (ticket 86b9fkm0u)",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/BDO_BankStatement.png"
+      ],
+      "echoField": "publicUserId",
+      "echoValue": "Bearer regression-echo-verbatim",
+      "section": "Infrastructure"
+    },
+    {
+      "id": "infra-callback-echo-multidoc-batch",
+      "documentType": "BankStatement",
+      "documentTypes": ["Payslip", "Payslip", "Payslip", "BankStatement"],
+      "testType": "callback-echo",
+      "smoke": false,
+      "skipAppCallback": true,
+      "description": "Callback echo — multi-doc batch (3 PAYSLIP + 1 BANK_STATEMENT), mirrors GCash GGIVES repro (ticket 86b9fkm0u). App callback skipped — mixed-type batches exceed polling window.",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/employment/Payslip/PS-002.png",
+        "gs://verifyiq-internal-testing/QA/employment/Payslip/PS-013.pdf",
+        "gs://verifyiq-internal-testing/QA/employment/Payslip/PS-002.png",
+        "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/BDO_BankStatement.png"
+      ],
+      "echoField": "publicUserId",
+      "echoValue": "9900118822",
+      "section": "Infrastructure"
     }
   ]
 }
