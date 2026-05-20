@@ -1398,6 +1398,135 @@ export async function runContractNegative(fixture, results) {
   }
 }
 
+// -- CALLBACK-ECHO: batch upload + identity field echo assertion ---------------
+//
+// Guards fix for ticket 86b9fkm0u: publicUserId/submissionId/authorization
+// sent in the BatchUploadRequest payload must be echoed verbatim in every
+// decrypted callback body. No type coercion, no normalization.
+//
+// Fixture fields:
+//   echoField  {string}   — top-level field name to assert (e.g. "publicUserId")
+//   echoValue  {string}   — exact string value that must round-trip unchanged
+//   documentTypes {string[]} — optional per-file override for mixed-type batches
+//
+export async function runCallbackEcho(fixture, results) {
+  if (!state.webhookTokenId) {
+    results.push({ file: null, status: 0, passed: false, body: null,
+      summary: 'SKIPPED -- no webhook token' });
+    return;
+  }
+
+  const { echoField, echoValue } = fixture;
+  if (!echoField || echoValue === undefined) {
+    results.push({ file: null, status: 0, passed: false, body: null,
+      summary: 'FAIL -- fixture missing echoField or echoValue' });
+    return;
+  }
+
+  // Per-file document types for mixed batches (e.g. 3 PAYSLIP + 1 BANK_STATEMENT)
+  const perFileTypes = Array.isArray(fixture.documentTypes) ? fixture.documentTypes : [];
+  const documents = fixture.files.map((file, i) => {
+    const rawType = perFileTypes[i] ?? fixture.documentType;
+    const docType = GATEWAY_DOCTYPE_MAP[rawType] || rawType;
+    return {
+      documentId: randomUUID(), fileId: randomUUID(),
+      documentClassification: 'PRIMARY',
+      documentType: docType, filename: file.split('/').pop(), preSignedUrl: file,
+    };
+  });
+
+  // Build the payload, injecting echoField alongside the standard identity fields
+  const echoPayload = {
+    publicUserId: `regression-echo-${fixture.id}-${Date.now()}`,
+    submissionId: randomUUID(),
+    documents,
+    [echoField]: echoValue,
+  };
+
+  const webhookIapHeader = { Authorization: `Bearer ${getWebhookIapToken()}` };
+  const payload = {
+    payload: echoPayload,
+    callbacks: {
+      documentResult:   { url: `${WEBHOOK_SERVER_URL}/${state.webhookTokenId}`, method: 'POST', headers: webhookIapHeader },
+      applicationResult: { url: `${WEBHOOK_SERVER_URL}/${state.webhookTokenId}`, method: 'POST', headers: webhookIapHeader },
+    },
+  };
+
+  let baselineCount;
+  try { baselineCount = await getWebhookBaseline(); console.log(`    Webhook baseline: ${baselineCount}`); }
+  catch (err) {
+    results.push({ file: null, status: 0, passed: false, body: null, summary: `Webhook baseline failed: ${err.message}` });
+    return;
+  }
+
+  const client = createApiClient(true);
+  let status, body;
+  try { const res = await client.post('/ai-gateway/batch-upload', payload); status = res.status; body = res.data; }
+  catch (err) {
+    results.push({ file: null, status: 0, passed: false, body: null, summary: `POST error: ${err.message}` });
+    return;
+  }
+
+  console.log(`    [ECHO] POST response: HTTP ${status}`);
+  if (status !== 200) {
+    results.push({ file: null, status, passed: false, body,
+      summary: `HTTP ${status} -- ${JSON.stringify(body).slice(0, 200)}` });
+    return;
+  }
+  if (!body.applicationId) {
+    results.push({ file: null, status, passed: false, body, summary: 'Missing applicationId' });
+    return;
+  }
+  console.log(`    [ECHO] applicationId=${body.applicationId}, asserting ${echoField}="${echoValue}"`);
+
+  // skipAppCallback: true skips waiting for the application-level callback (e.g.
+  // for mixed-type multi-doc batches where the app callback arrives too slowly).
+  const expectedCallbacks = fixture.skipAppCallback ? documents.length : documents.length + 1;
+  const cbLabel = fixture.skipAppCallback
+    ? `${documents.length} doc`
+    : `${documents.length} doc + 1 app`;
+  let callbacks;
+  try {
+    console.log(`    Waiting for ${expectedCallbacks} callbacks (${cbLabel})...`);
+    callbacks = await pollWebhookCallbacks(baselineCount, expectedCallbacks, body.applicationId);
+    console.log(`    Received ${callbacks.length} callbacks`);
+  } catch (err) {
+    results.push({ file: null, status, passed: false, body, summary: `Polling: ${err.message}` });
+    return;
+  }
+
+  const echoErrors = [];
+  let checked = 0;
+  for (const cb of callbacks) {
+    const rawBody = cb.content ?? cb.body ?? JSON.stringify(cb);
+    let decrypted;
+    try { decrypted = await decryptCallback(rawBody); }
+    catch (err) {
+      if (err.prSkip) { console.log(`    ${err.message}`); continue; }
+      echoErrors.push(`Decrypt failed: ${err.message}`); continue;
+    }
+
+    checked++;
+    const cbLabel = decrypted.documentId ? `doc(${decrypted.documentId.slice(0, 8)})` : `app(${decrypted.applicationId?.slice(0, 8)})`;
+    const actual = decrypted[echoField];
+    if (actual === echoValue) {
+      console.log(`    PASS ${cbLabel}: ${echoField}="${actual}"`);
+    } else {
+      const msg = `${cbLabel}: ${echoField} — sent "${echoValue}", got ${JSON.stringify(actual)}`;
+      console.log(`    FAIL ${msg}`);
+      echoErrors.push(msg);
+    }
+  }
+
+  if (echoErrors.length) {
+    results.push({ file: null, status, passed: false, body,
+      summary: `FAIL echo(${echoField}): ${echoErrors.join('; ')}` });
+  } else {
+    results.push({ file: null, status, passed: true, body,
+      summary: `PASS ${checked}/${expectedCallbacks} callbacks — ${echoField}="${echoValue}" verbatim` });
+  }
+}
+
 export const TEST_TYPE_RUNNERS = {
   default: runDefault,
   fraud: validateFraud,
@@ -1417,4 +1546,5 @@ export const TEST_TYPE_RUNNERS = {
   'payslip-rules': validatePayslipRules,
   'quality-reject': validateQualityReject,
   'contract-negative': runContractNegative,
+  'callback-echo': runCallbackEcho,
 };
