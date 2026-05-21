@@ -145,6 +145,10 @@ Flagged (was Stable, now has new warning).
 | BS-DEEP-BDO-001 | Bank / Financial | 1 | 3 | 2026-04-16 | - | New |
 | BS-DEEP-BPI-001 | Bank / Financial | 1 | 3 | 2026-04-16 | - | New |
 | BS-DEEP-MAYA-001 | Bank / Financial | 1 | 3 | 2026-04-16 | - | New |
+| BS-DEEP-METRO-001 | Bank / Financial | 3 | 0 | - | - | New |
+| BS-DEEP-UB-001 | Bank / Financial | 3 | 0 | - | - | New |
+| BS-DEEP-PNB-001 | Bank / Financial | 3 | 0 | - | 2026-05-21 | Watched |
+| BS-DEEP-GOTYME-001 | Bank / Financial | 3 | 0 | - | - | New |
 | CC-BDO-001 | Bank / Financial | 1 | 3 | 2026-04-16 | - | New |
 | GCASH-TXN-001 | Bank / Financial | 3 | 3 | 2026-04-16 | - | New |
 | BS-GCASH-001 | Bank / Financial | 3 | 3 | 2026-04-16 | - | New |

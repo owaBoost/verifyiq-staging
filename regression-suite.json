@@ -94,6 +94,62 @@
       "section": "Bank / Financial"
     },
     {
+      "id": "BS-DEEP-METRO-001",
+      "smoke": false,
+      "documentType": "BankStatement",
+      "testType": "bank-deep-batch",
+      "description": "Metrobank eSOA (Cashalo bucket) — batch deep: transactions, postingDate, debit/credit totals, first/last date+balance",
+      "files": [
+        "gs://test-ai-docs-data-staging/Cashalo/BankStatement/Metrobank/1_2025-11-12_eSOA11082025_152453.pdf"
+      ],
+      "assertions": [
+        { "field": "calculated_debits",  "expected": 173055.75, "tolerance": 0.01 },
+        { "field": "calculated_credits", "expected": 133897.6,  "tolerance": 0.01 }
+      ],
+      "section": "Bank / Financial"
+    },
+    {
+      "id": "BS-DEEP-UB-001",
+      "smoke": false,
+      "documentType": "BankStatement",
+      "testType": "bank-deep-batch",
+      "description": "UnionBank transactions export (Cashalo bucket) — batch deep: transactions, postingDate, debit/credit totals, first/last date+balance",
+      "files": [
+        "gs://test-ai-docs-data-staging/Cashalo/BankStatement/Unionbank/1_2025-11-22_UB-Transactions_2025-11-22_08-35-08.pdf"
+      ],
+      "assertions": [
+        { "field": "calculated_debits",  "expected": 24133.04, "tolerance": 0.01 },
+        { "field": "calculated_credits", "expected": 16150.49, "tolerance": 0.01 }
+      ],
+      "section": "Bank / Financial"
+    },
+    {
+      "id": "BS-DEEP-PNB-001",
+      "smoke": false,
+      "documentType": "BankStatement",
+      "testType": "bank-deep-batch",
+      "description": "Philippine National Bank statement (staging bucket) — batch deep: extraction currently returns no data (Watched)",
+      "files": [
+        "gs://test-ai-docs-data-staging/Bank Statement/1118_Bank Statement_Philippine National Bank (1).png"
+      ],
+      "section": "Bank / Financial"
+    },
+    {
+      "id": "BS-DEEP-GOTYME-001",
+      "smoke": false,
+      "documentType": "BankStatement",
+      "testType": "bank-deep-batch",
+      "description": "GoTyme bank statement (staging bucket) — batch deep: transactions, postingDate, debit/credit totals, first/last date+balance",
+      "files": [
+        "gs://test-ai-docs-data-staging/bank-statements/gotyme/GOtyme bank_statement.jpeg"
+      ],
+      "assertions": [
+        { "field": "calculated_debits",  "expected": 64800.87, "tolerance": 0.01 },
+        { "field": "calculated_credits", "expected": 62790.88, "tolerance": 0.01 }
+      ],
+      "section": "Bank / Financial"
+    },
+    {
       "id": "CC-BDO-001",
       "documentType": "CreditCardStatement",
       "testType": "default",
