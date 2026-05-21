@@ -1527,6 +1527,118 @@ export async function runCallbackEcho(fixture, results) {
   }
 }
 
+// -- CROSS-VALIDATE: batch upload PRIMARY + SUPPORTING, then assert tier results
+//
+// Differences from 'crosscheck':
+//   - crosscheck asserts crossCheckFindings from the application callback
+//   - cross-validate asserts tier_1_results / tier_2_results from the direct
+//     POST /api/v1/cross-validate response
+//
+// fixture.assertions (optional): array of { tier, field, status } objects.
+// Each entry is checked against the matching tier array in the response.
+// Probe result for BLS-CROSSVALIDATE-001 (BS + ElectricUtility, 2026-05-21):
+//   tier_1_results: [], tier_2_results: [{ field:"address", status:"fail",
+//   confidence:0.66, detail:"city mismatch: 'makati' vs 'manila metro manila'" }]
+
+export async function runCrossValidateDirect(fixture, results) {
+  if (!state.webhookTokenId) {
+    results.push({ file: null, status: 0, passed: false, body: null, summary: 'SKIPPED -- no webhook token' });
+    return;
+  }
+
+  const gatewayDocType = GATEWAY_DOCTYPE_MAP[fixture.documentType] || fixture.documentType;
+  const documents = fixture.files.map(file => ({
+    documentId: randomUUID(), fileId: randomUUID(), documentClassification: 'PRIMARY',
+    documentType: gatewayDocType, filename: file.split('/').pop(), preSignedUrl: file,
+  }));
+  if (fixture.supportingFiles) {
+    for (const sf of fixture.supportingFiles) {
+      const sfPath = typeof sf === 'string' ? sf : sf.path;
+      const sfDocType = (typeof sf === 'object' && sf.documentType)
+        ? (GATEWAY_DOCTYPE_MAP[sf.documentType] || sf.documentType)
+        : gatewayDocType;
+      const sfClass = (typeof sf === 'object' && sf.documentClassification) || 'SUPPORTING';
+      documents.push({
+        documentId: randomUUID(), fileId: randomUUID(), documentClassification: sfClass,
+        documentType: sfDocType, filename: sfPath.split('/').pop(), preSignedUrl: sfPath,
+      });
+    }
+  }
+
+  const webhookIapHeader = { Authorization: `Bearer ${getWebhookIapToken()}` };
+  const payload = {
+    payload: { publicUserId: `regression-${fixture.id}-${Date.now()}`, submissionId: randomUUID(), documents },
+    callbacks: {
+      documentResult:    { url: `${WEBHOOK_SERVER_URL}/${state.webhookTokenId}`, method: 'POST', headers: webhookIapHeader },
+      applicationResult: { url: `${WEBHOOK_SERVER_URL}/${state.webhookTokenId}`, method: 'POST', headers: webhookIapHeader },
+    },
+  };
+
+  let baselineCount;
+  try { baselineCount = await getWebhookBaseline(); console.log(`    Webhook baseline: ${baselineCount}`); }
+  catch (err) { results.push({ file: null, status: 0, passed: false, body: null, summary: `Baseline: ${err.message}` }); return; }
+
+  console.log(`  -> [CROSS-VALIDATE] Batch upload (${documents.length} docs: ${fixture.files.length} PRIMARY + ${fixture.supportingFiles?.length || 0} SUPPORTING)...`);
+  const batchClient = createApiClient(true);
+  let batchStatus, batchBody;
+  try { const res = await batchClient.post('/ai-gateway/batch-upload', payload); batchStatus = res.status; batchBody = res.data; }
+  catch (err) { results.push({ file: null, status: 0, passed: false, body: null, summary: `Batch POST error: ${err.message}` }); return; }
+
+  if (batchStatus !== 200 || !batchBody.applicationId) {
+    results.push({ file: null, status: batchStatus, passed: false, body: batchBody, summary: `Batch HTTP ${batchStatus} -- ${JSON.stringify(batchBody).slice(0, 200)}` });
+    return;
+  }
+  const applicationId = batchBody.applicationId;
+  console.log(`    HTTP 200, applicationId=${applicationId}`);
+
+  const expectedCallbacks = documents.length + 1;
+  try {
+    console.log(`    Waiting for ${expectedCallbacks} callbacks (${documents.length} doc + 1 app)...`);
+    const callbacks = await pollWebhookCallbacks(baselineCount, expectedCallbacks, applicationId);
+    console.log(`    Received ${callbacks.length} callbacks`);
+  } catch (err) { results.push({ file: null, status: batchStatus, passed: false, body: null, summary: `Callback polling: ${err.message}` }); return; }
+
+  await sleep(2500);
+  console.log(`  -> [CROSS-VALIDATE] POST /api/v1/cross-validate { application_id: "${applicationId}" }`);
+  let cvStatus, cvData;
+  try {
+    const res = await createApiClient(false).post('/api/v1/cross-validate', { application_id: applicationId });
+    cvStatus = res.status; cvData = res.data;
+  } catch (err) { results.push({ file: null, status: 0, passed: false, body: null, summary: `cross-validate error: ${err.message}` }); return; }
+
+  const tier1 = cvData?.tier_1_results ?? [];
+  const tier2 = cvData?.tier_2_results ?? [];
+  console.log(`    HTTP ${cvStatus}, consistency_score=${cvData?.consistency_score}`);
+  console.log(`    tier_1_results (${tier1.length}): ${tier1.map(r => `${r.field}=${r.status}`).join(', ') || '—'}`);
+  console.log(`    tier_2_results (${tier2.length}): ${tier2.map(r => `${r.field}=${r.status}(${r.confidence})`).join(', ') || '—'}`);
+
+  const errors = [];
+  if (cvStatus !== 200) errors.push(`HTTP ${cvStatus}`);
+  if (tier1.length + tier2.length === 0) errors.push('no tier_1 or tier_2 results returned');
+
+  for (const a of (fixture.assertions ?? [])) {
+    const pool = a.tier === 1 ? tier1 : tier2;
+    const hit = pool.find(r => r.field === a.field && r.status === a.status);
+    if (hit) {
+      console.log(`    PASS tier_${a.tier} ${a.field} === "${a.status}" (confidence=${hit.confidence ?? 'n/a'})`);
+    } else {
+      const actual = pool.find(r => r.field === a.field);
+      const msg = actual
+        ? `tier_${a.tier} ${a.field}: expected status="${a.status}", got "${actual.status}"`
+        : `tier_${a.tier} ${a.field}: entry not found`;
+      errors.push(msg);
+      console.log(`    FAIL ${msg}`);
+    }
+  }
+
+  const passed = errors.length === 0;
+  const summary = passed
+    ? `HTTP 200 -- cross-validate OK, tier1=${tier1.length} tier2=${tier2.length} result(s), score=${cvData?.consistency_score}`
+    : `cross-validate failed: ${errors.join('; ')}`;
+  results.push({ file: 'cross-validate', status: cvStatus, passed, body: cvData, summary });
+  console.log(`    ${passed ? 'PASS' : 'FAIL'} ${summary}`);
+}
+
 export const TEST_TYPE_RUNNERS = {
   default: runDefault,
   fraud: validateFraud,
@@ -1547,4 +1659,5 @@ export const TEST_TYPE_RUNNERS = {
   'quality-reject': validateQualityReject,
   'contract-negative': runContractNegative,
   'callback-echo': runCallbackEcho,
+  'cross-validate': runCrossValidateDirect,
 };
