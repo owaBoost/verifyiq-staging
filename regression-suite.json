@@ -684,6 +684,31 @@
       "section": "Infrastructure"
     },
     {
+      "id": "BLS-CROSSVALIDATE-001",
+      "documentType": "BankStatement",
+      "testType": "cross-validate",
+      "description": "Direct cross-validate endpoint — GCash BankStatement + ElectricUtilityBillingStatement (address mismatch expected)",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/Gcash/HP-BS-02_GCash QA_Jan 2026.pdf"
+      ],
+      "supportingFiles": [
+        {
+          "path": "gs://verifyiq-internal-testing/QA/Gcash/HP-SUP-03.JPG",
+          "documentType": "ElectricUtilityBillingStatement",
+          "documentClassification": "SUPPORTING"
+        }
+      ],
+      "section": "Infrastructure",
+      "smoke": false,
+      "assertions": [
+        {
+          "tier": 2,
+          "field": "address",
+          "status": "fail"
+        }
+      ]
+    },
+    {
       "id": "BLS-001",
       "documentType": "bls",
       "testType": "bls",
@@ -999,7 +1024,12 @@
     {
       "id": "infra-callback-echo-multidoc-batch",
       "documentType": "BankStatement",
-      "documentTypes": ["Payslip", "Payslip", "Payslip", "BankStatement"],
+      "documentTypes": [
+        "Payslip",
+        "Payslip",
+        "Payslip",
+        "BankStatement"
+      ],
       "testType": "callback-echo",
       "smoke": false,
       "skipAppCallback": true,
