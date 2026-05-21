@@ -93,7 +93,9 @@ proposals only. Staleness rule: warning pattern entries unconfirmed after 180 da
 - Recurrence: 1
 - Notes: Pattern covers publicUserId (numeric and UUID variants), submissionId,
   and Authorization header preservation across document-listener and
-  application-listener callback endpoints.
+  application-listener callback endpoints. Authorization header is gateway-internal
+  and not echoed in callback payloads. Pattern guards publicUserId and submissionId
+  only. The bearer-token echo fixture tests coercion resistance via publicUserId.
 
 ---
 
@@ -131,18 +133,18 @@ root cause, fixed PR/ticket + date, what to do if it reappears.
 ## Fixture Registry
 
 Tracks all fixtures with clean run history. Update consecutive_clean_runs
-after every run. Status: Stable (5+), New (<3), Watched (active Monitor),
-Flagged (was Stable, now has new warning).
+after every run. Status: Stable (5+), New (not yet Stable), Watched (active Monitor),
+Flagged (was Stable, now warning).
 
 | Fixture ID | Category | Assertions | Clean Runs | Last Clean | Last Warning | Status |
 |---|---|---|---|---|---|---|
-| BS-BDO-001 | Bank / Financial | 2 | 3 | 2026-04-16 | - | New |
+| BS-BDO-001 | Bank / Financial | 2 | 4 | 2026-05-19 | - | New |
 | BS-BPI-001 | Bank / Financial | 2 | 3 | 2026-04-16 | - | New |
 | BS-GOTYME-001 | Bank / Financial | 2 | 3 | 2026-04-16 | - | New |
 | BS-MAYA-001 | Bank / Financial | 2 | 3 | 2026-04-16 | - | New |
 | BS-PNB-001 | Bank / Financial | 2 | 3 | 2026-04-16 | - | New |
 | BS-UB-001 | Bank / Financial | 2 | 3 | 2026-04-16 | - | New |
-| BS-DEEP-BDO-001 | Bank / Financial | 1 | 3 | 2026-04-16 | - | New |
+| BS-DEEP-BDO-001 | Bank / Financial | 1 | 4 | 2026-05-19 | - | New |
 | BS-DEEP-BPI-001 | Bank / Financial | 1 | 3 | 2026-04-16 | - | New |
 | BS-DEEP-MAYA-001 | Bank / Financial | 1 | 3 | 2026-04-16 | - | New |
 | BS-DEEP-METRO-001 | Bank / Financial | 3 | 0 | - | - | New |
@@ -163,9 +165,11 @@ Flagged (was Stable, now has new warning).
 | PS-EDGE-001 | Employment | 4 | 3 | 2026-04-16 | - | New |
 | PS-SAFC-001 | Employment | 4 | 3 | 2026-04-16 | - | New |
 | COE-001 | Employment | 2 | 3 | 2026-04-16 | - | New |
+| PS-TC001 | Employment | 7 | 0 | - | - | New |
+| PS-TC003 | Employment | 6 | 0 | - | - | New |
 | PS-GCASH-SM-001 | Employment | 7 | 0 | - | - | New |
 | PS-GCASH-MO-001 | Employment | 6 | 0 | - | - | New |
-| PHILID-001 | Identity / KYC | 2 | 3 | 2026-04-16 | - | New |
+| PHILID-001 | Identity / KYC | 2 | 4 | 2026-05-19 | - | New |
 | DL-001 | Identity / KYC | 1 | 3 | 2026-04-16 | - | New |
 | PASS-001 | Identity / KYC | 1 | 3 | 2026-04-16 | - | New |
 | UMID-001 | Identity / KYC | 1 | 3 | 2026-04-16 | - | New |
@@ -198,24 +202,24 @@ Flagged (was Stable, now has new warning).
 | PASS-FRAUD-FP-001 | Fraud | 2 | 0 | - | 2026-04-16 | Watched |
 | ELEC-FRAUD-001 | Fraud | 1 | 3 | 2026-04-16 | - | New |
 | BIR-FRAUD-001 | Fraud | 1 | 3 | 2026-04-16 | - | New |
-| HEALTH-001 | Infrastructure | 5 | 3 | 2026-04-16 | - | New |
-| SEC-001 | Infrastructure | 3 | 3 | 2026-04-16 | - | New |
-| CACHE-001 | Infrastructure | 2 | 3 | 2026-04-16 | - | New |
+| HEALTH-001 | Infrastructure | 5 | 4 | 2026-05-19 | - | New |
+| SEC-001 | Infrastructure | 3 | 4 | 2026-05-19 | - | New |
+| CACHE-001 | Infrastructure | 2 | 4 | 2026-05-19 | - | New |
 | CROSS-001 | Infrastructure | 1 | 3 | 2026-04-16 | - | New |
 | BLS-CROSSVALIDATE-001 | Infrastructure | 1 | 0 | - | - | New |
 | BLS-001 | Infrastructure | 2 | 3 | 2026-04-16 | - | New |
 | DEDUP-001 | Infrastructure | 1 | 3 | 2026-04-16 | - | New |
-| infra-callback-echo-publicuserid-numeric | Infrastructure | 1 | 0 | - | - | New |
-| infra-callback-echo-submissionid | Infrastructure | 1 | 0 | - | - | New |
-| infra-callback-echo-bearer-token | Infrastructure | 1 | 0 | - | - | New |
-| infra-callback-echo-publicuserid-uuid | Infrastructure | 1 | 0 | - | - | New |
-| infra-callback-echo-multidoc-batch | Infrastructure | 1 | 0 | - | - | New |
-| BS-CONTRACT-PAGECOUNT-001 | Contract Negative | 0 | 0 | - | - | New |
-| BS-CONTRACT-MULTIACCOUNT-001 | Contract Negative | 0 | 0 | - | - | New |
-| UMID-CONTRACT-MEGAPIXEL-001 | Contract Negative | 0 | 0 | - | - | New |
-| MAYORS-001 | KYB | 2 | 0 | - | - | New |
-| SEC-CERT-001 | KYB | 2 | 0 | - | - | New |
-| BIREXEMPT-001 | KYB | 1 | 0 | - | - | New |
+| infra-callback-echo-publicuserid-numeric | Infrastructure | 1 | 1 | 2026-05-20 | - | New |
+| infra-callback-echo-submissionid | Infrastructure | 1 | 1 | 2026-05-20 | - | New |
+| infra-callback-echo-bearer-token | Infrastructure | 1 | 1 | 2026-05-20 | - | New |
+| infra-callback-echo-publicuserid-uuid | Infrastructure | 1 | 1 | 2026-05-20 | - | New |
+| infra-callback-echo-multidoc-batch | Infrastructure | 1 | 1 | 2026-05-20 | - | New |
+| BS-CONTRACT-PAGECOUNT-001 | Contract Negative | 0 | 1 | 2026-05-19 | - | New |
+| BS-CONTRACT-MULTIACCOUNT-001 | Contract Negative | 0 | 1 | 2026-05-19 | - | New |
+| UMID-CONTRACT-MEGAPIXEL-001 | Contract Negative | 0 | 1 | 2026-05-19 | - | New |
+| MAYORS-001 | KYB | 2 | 1 | 2026-05-19 | - | New |
+| SEC-CERT-001 | KYB | 2 | 1 | 2026-05-19 | - | New |
+| BIREXEMPT-001 | KYB | 1 | 1 | 2026-05-19 | - | New |
 
 ---
 
@@ -288,11 +292,12 @@ Flagged (was Stable, now has new warning).
 - origin_ticket: 86b9fkm0u
 
 ### infra-callback-echo-bearer-token
-- Description: Callback echo — Authorization header preserved verbatim
+- Description: Tests coercion-free string round-tripping using a Bearer-format publicUserId
+  value. The gateway does not echo the Authorization header (it is
+  webhook-server-internal IAP only). echoField: publicUserId,
+  echoValue: Bearer regression-echo-verbatim.
 - Category: Infrastructure
 - origin_ticket: 86b9fkm0u
-- Notes: Verifies Authorization header is preserved verbatim at both
-  document-listener and application-listener endpoints.
 
 ### infra-callback-echo-publicuserid-uuid
 - Description: Callback echo — UUID publicUserId round-trip
@@ -304,6 +309,7 @@ Flagged (was Stable, now has new warning).
 - Category: Infrastructure
 - origin_ticket: 86b9fkm0u
 - Notes: Mirrors exact GCash repro (4 docs, 3 PAYSLIP + 1 BANK_STATEMENT).
+  Uses skipAppCallback — validates 4 doc-listener callbacks only.
 
 ---
 

@@ -182,6 +182,6 @@
   "new_patterns": [],
   "flagged_fixtures": [],
   "missing_fixtures": ["PS-GCASH-SM-001", "PS-GCASH-MO-001"],
-  "overall_verdict": "Monitor",
-  "notes": "All 8 warnings are recurring from 2026-04-10. BS-TONIK-001 escalated to Needs Investigation per KB recurrence rule. PASS-FRAUD-FP-001 duplicate log entries persist for 2nd consecutive run — consider pipeline logging bug if it recurs again. Three Monitor patterns (tampered/damaged ID, passport FP, ACR I-Card ssrn) all await dev confirmation."
+  "overall_verdict": "Action Required",
+  "notes": "All 8 warnings are recurring from 2026-04-10. BS-TONIK-001 escalated to Needs Investigation per KB recurrence rule. PASS-FRAUD-FP-001 duplicate log entries persist for 2nd consecutive run — consider pipeline logging bug if it recurs again. Three Monitor patterns (tampered/damaged ID, passport FP, ACR I-Card ssrn) all await dev confirmation. Verdict corrected 2026-05-20: BS-TONIK-001 was classified Needs Investigation with a bug drafted — this mandates Action Required per verdict rules."
 }
