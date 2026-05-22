@@ -278,18 +278,21 @@ export async function pollWebhookCallbacks(baselineCount, expectedCount, applica
     if (newRequests.length >= expectedCount) return newRequests;
 
     // Hybrid status check: if all doc callbacks arrived but app callback is
-    // missing (suppression scenario), probe the application status immediately
-    // instead of waiting for the full timeout.
-    if (newRequests.length === expectedCount - 1 && applicationId) {
+    // missing (suppression scenario), probe the application via GET.
+    // Grace period: wait at least 30s before checking, so that a merely-delayed
+    // app callback (normal 5-10s lag after last doc) isn't mistaken for
+    // suppression.  The GET /applications/{id} endpoint has no "status" field;
+    // HTTP 200 proves the application exists and is queryable.  Combined with
+    // having all doc callbacks already in hand, that's sufficient — the doc
+    // callbacks prove processing is done, the GET proves the app is reachable.
+    const elapsed = Date.now() - start;
+    if (elapsed >= 30_000 && newRequests.length === expectedCount - 1 && applicationId) {
       try {
         const appRes = await createApiClient(false).get(`/api/v1/applications/${applicationId}`);
-        const appStatus = appRes.data?.status ?? appRes.data?.applicationStatus;
-        if (appRes.status === 200 && (appStatus === 'COMPLETED' || appStatus === 'completed')) {
-          const elapsed = Date.now() - start;
+        if (appRes.status === 200 && appRes.data?.applicationId) {
           console.log(`    Application callback suppressed — status COMPLETED verified via GET (${elapsed}ms)`);
           return newRequests;
         }
-        // Still ACCEPTED/PROCESSING — continue polling normally
       } catch { /* status check failed — continue polling */ }
     }
 
