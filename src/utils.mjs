@@ -276,14 +276,28 @@ export async function pollWebhookCallbacks(baselineCount, expectedCount, applica
     const all = res.data?.data ?? [];
     const newRequests = all.slice(0, all.length - baselineCount);
     if (newRequests.length >= expectedCount) return newRequests;
+
+    // Hybrid status check: if all doc callbacks arrived but app callback is
+    // missing (suppression scenario), probe the application status immediately
+    // instead of waiting for the full timeout.
+    if (newRequests.length === expectedCount - 1 && applicationId) {
+      try {
+        const appRes = await createApiClient(false).get(`/api/v1/applications/${applicationId}`);
+        const appStatus = appRes.data?.status ?? appRes.data?.applicationStatus;
+        if (appRes.status === 200 && (appStatus === 'COMPLETED' || appStatus === 'completed')) {
+          const elapsed = Date.now() - start;
+          console.log(`    Application callback suppressed — status COMPLETED verified via GET (${elapsed}ms)`);
+          return newRequests;
+        }
+        // Still ACCEPTED/PROCESSING — continue polling normally
+      } catch { /* status check failed — continue polling */ }
+    }
+
     console.log(`    Polling... ${newRequests.length}/${expectedCount} callbacks received`);
   }
 
-  // Suppression fallback: the backend suppresses applicationResult when a
-  // document's fraud score falls below the threshold. In that case all N doc
-  // callbacks arrive but the application callback is never sent.
-  // Condition: received exactly (expectedCount - 1) callbacks AND the
-  // application is reachable via GET — treat as validated PASS.
+  // Final suppression fallback (timeout reached): one last check in case we
+  // narrowly missed the window above.
   const finalRes = await axios.get(
     `${WEBHOOK_SERVER_URL}/token/${state.webhookTokenId}/requests?per_page=2000`,
     { headers: { Authorization: `Bearer ${getWebhookIapToken()}` }, validateStatus: () => true }
@@ -302,4 +316,49 @@ export async function pollWebhookCallbacks(baselineCount, expectedCount, applica
   }
 
   throw new Error(`Timed out after ${timeoutMs / 1000}s waiting for ${expectedCount} callbacks`);
+}
+
+// -- API endpoint helpers (Wave 6) --------------------------------------------
+
+export async function callGetApplication(applicationId) {
+  const client = createApiClient(false);
+  const res = await client.get(`/api/v1/applications/${applicationId}`);
+  return { status: res.status, body: res.data };
+}
+
+export async function callSearchApplications({ query }) {
+  const client = createApiClient(false);
+  const params = new URLSearchParams(query).toString();
+  const res = await client.get(`/api/v1/applications/search?${params}`);
+  return { status: res.status, body: res.data };
+}
+
+export async function callGetDocument(applicationId, docId) {
+  const client = createApiClient(false);
+  const res = await client.get(`/api/v1/applications/${applicationId}/documents/${docId}`);
+  return { status: res.status, body: res.data };
+}
+
+export async function callGetDocumentPages(applicationId, docId) {
+  const client = createApiClient(false);
+  const res = await client.get(`/api/v1/applications/${applicationId}/documents/${docId}/pages`);
+  return { status: res.status, body: res.data };
+}
+
+export async function callReprocessDocument(applicationId, docId) {
+  const client = createApiClient(false);
+  const res = await client.post(`/api/v1/applications/${applicationId}/documents/${docId}/reprocess`);
+  return { status: res.status, body: res.data };
+}
+
+export async function callGetBatchStatus(applicationId) {
+  const client = createApiClient(true);
+  const res = await client.get(`/ai-gateway/batch-upload/${applicationId}/status`);
+  return { status: res.status, body: res.data };
+}
+
+export async function callGetBatchResult(applicationId) {
+  const client = createApiClient(true);
+  const res = await client.get(`/ai-gateway/batch-upload/${applicationId}/result`);
+  return { status: res.status, body: res.data };
 }

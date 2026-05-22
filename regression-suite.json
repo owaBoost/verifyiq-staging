@@ -1099,6 +1099,84 @@
       "echoField": "publicUserId",
       "echoValue": "9900118822",
       "section": "Infrastructure"
+    },
+    {
+      "id": "API-APP-LIFECYCLE-001",
+      "documentType": "BankStatement",
+      "testType": "api-endpoints",
+      "smoke": false,
+      "description": "API lifecycle — GET application + search after seed batch upload",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/BDO_BankStatement.png"
+      ],
+      "endpointAssertions": [
+        {
+          "endpoint": "GET /applications/{applicationId}",
+          "expectedStatus": 200,
+          "assertApplicationIdMatch": true,
+          "assertStatus": ["COMPLETED", "completed"]
+        },
+        {
+          "endpoint": "GET /applications/search",
+          "expectedStatus": 200,
+          "assertArrayField": "results",
+          "assertArrayMinLength": 1
+        }
+      ],
+      "section": "Infrastructure"
+    },
+    {
+      "id": "API-DOC-LIFECYCLE-001",
+      "documentType": "BankStatement",
+      "testType": "api-endpoints",
+      "smoke": false,
+      "description": "API lifecycle — GET document, document pages, POST reprocess after seed batch upload",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/BDO_BankStatement.png"
+      ],
+      "endpointAssertions": [
+        {
+          "endpoint": "GET /applications/{id}/documents/{docId}",
+          "expectedStatus": 200,
+          "assertDocIdMatch": true,
+          "requiredFields": ["status", "documentType"]
+        },
+        {
+          "endpoint": "GET /applications/{id}/documents/{docId}/pages",
+          "expectedStatus": 200,
+          "assertArrayField": "pages",
+          "assertArrayMinLength": 1
+        },
+        {
+          "endpoint": "POST /applications/{id}/documents/{docId}/reprocess",
+          "expectedStatus": [200, 202]
+        }
+      ],
+      "section": "Infrastructure"
+    },
+    {
+      "id": "API-BATCH-LIFECYCLE-001",
+      "documentType": "BankStatement",
+      "testType": "api-endpoints",
+      "smoke": false,
+      "description": "API lifecycle — GET batch status + batch result after seed batch upload",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/BDO_BankStatement.png"
+      ],
+      "endpointAssertions": [
+        {
+          "endpoint": "GET /ai-gateway/batch-upload/{id}/status",
+          "expectedStatus": 200,
+          "assertStatus": ["COMPLETED", "completed"]
+        },
+        {
+          "endpoint": "GET /ai-gateway/batch-upload/{id}/result",
+          "expectedStatus": 200,
+          "assertArrayField": "documents",
+          "assertArrayMinLength": 1
+        }
+      ],
+      "section": "Infrastructure"
     }
   ]
 }

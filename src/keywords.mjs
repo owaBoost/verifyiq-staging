@@ -22,6 +22,13 @@ import {
   decryptCallback,
   WEBHOOK_SERVER_URL,
   GATEWAY_DOCTYPE_MAP,
+  callGetApplication,
+  callSearchApplications,
+  callGetDocument,
+  callGetDocumentPages,
+  callReprocessDocument,
+  callGetBatchStatus,
+  callGetBatchResult,
 } from './utils.mjs';
 import {
   RESPONSE_VALIDATORS,
@@ -1808,6 +1815,142 @@ export async function runCrossValidateDirect(fixture, results) {
   console.log(`    ${passed ? 'PASS' : 'FAIL'} ${summary}`);
 }
 
+// -- API-ENDPOINTS: seed a batch, then exercise lifecycle GET/POST endpoints ---
+
+const ENDPOINT_CALLERS = {
+  'GET /applications/{applicationId}': async (appId) => callGetApplication(appId),
+  'GET /applications/search': async (appId) => callSearchApplications({ query: { applicationId: appId } }),
+  'GET /applications/{id}/documents/{docId}': async (appId, docId) => callGetDocument(appId, docId),
+  'GET /applications/{id}/documents/{docId}/pages': async (appId, docId) => callGetDocumentPages(appId, docId),
+  'POST /applications/{id}/documents/{docId}/reprocess': async (appId, docId) => callReprocessDocument(appId, docId),
+  'GET /ai-gateway/batch-upload/{id}/status': async (appId) => callGetBatchStatus(appId),
+  'GET /ai-gateway/batch-upload/{id}/result': async (appId) => callGetBatchResult(appId),
+};
+
+export async function validateApiEndpoints(fixture, results) {
+  if (!state.webhookTokenId) {
+    results.push({ file: null, status: 0, passed: false, body: null, summary: 'SKIPPED -- no webhook token' });
+    return;
+  }
+
+  // Step 1: Seed a batch upload to get a real applicationId + docId
+  console.log('  -> [API-ENDPOINTS] Seeding batch upload...');
+  const batchResult = await batchUpload(fixture);
+  if (!batchResult.passed) {
+    results.push({ ...batchResult, file: 'seed-batch' });
+    console.log(`    FAIL seed batch: ${batchResult.summary}`);
+    return;
+  }
+  console.log(`    Seed batch OK`);
+
+  const applicationId = batchResult.body?.applicationId;
+  if (!applicationId) {
+    results.push({ file: 'seed-batch', status: 0, passed: false, body: null, summary: 'Seed batch missing applicationId' });
+    return;
+  }
+
+  // Extract a docId from callbacks
+  const docId = batchResult.callbackDetails?.documents?.[0]?.documentId ?? null;
+  console.log(`    applicationId=${applicationId}, docId=${docId}`);
+
+  // Brief wait for backend indexing
+  await sleep(2_000);
+
+  // Step 2: Run each endpoint assertion from the fixture
+  const endpointAssertions = fixture.endpointAssertions || [];
+  let allPassed = true;
+
+  for (const ea of endpointAssertions) {
+    const label = ea.endpoint;
+    console.log(`  -> [API-ENDPOINTS] ${label}`);
+    const caller = ENDPOINT_CALLERS[label];
+    if (!caller) {
+      results.push({ file: label, status: 0, passed: false, body: null, summary: `Unknown endpoint: ${label}` });
+      allPassed = false;
+      continue;
+    }
+
+    let res;
+    try {
+      res = await caller(applicationId, docId);
+    } catch (err) {
+      results.push({ file: label, status: 0, passed: false, body: null, summary: `Error: ${err.message}` });
+      allPassed = false;
+      console.log(`    FAIL ${err.message}`);
+      continue;
+    }
+
+    const errors = [];
+
+    // Assert HTTP status (supports single number or array of accepted statuses)
+    if (ea.expectedStatus) {
+      const accepted = Array.isArray(ea.expectedStatus) ? ea.expectedStatus : [ea.expectedStatus];
+      if (!accepted.includes(res.status)) {
+        errors.push(`HTTP ${res.status} (expected ${accepted.join(' or ')})`);
+      }
+    }
+
+    // Assert required body fields
+    if (Array.isArray(ea.requiredFields)) {
+      for (const field of ea.requiredFields) {
+        const val = getNestedField(res.body, field);
+        if (val === undefined || val === null) {
+          errors.push(`missing field: ${field}`);
+        }
+      }
+    }
+
+    // Assert applicationId match
+    if (ea.assertApplicationIdMatch && res.body) {
+      const bodyAppId = res.body.applicationId ?? res.body.id;
+      if (bodyAppId !== applicationId) {
+        errors.push(`applicationId mismatch: ${bodyAppId} !== ${applicationId}`);
+      }
+    }
+
+    // Assert docId match
+    if (ea.assertDocIdMatch && res.body && docId) {
+      const bodyDocId = res.body.documentId ?? res.body.id;
+      if (bodyDocId !== docId) {
+        errors.push(`docId mismatch: ${bodyDocId} !== ${docId}`);
+      }
+    }
+
+    // Assert array field present and non-empty
+    if (ea.assertArrayField) {
+      const arr = getNestedField(res.body, ea.assertArrayField);
+      if (!Array.isArray(arr)) {
+        errors.push(`${ea.assertArrayField} is not an array`);
+      } else if (ea.assertArrayMinLength && arr.length < ea.assertArrayMinLength) {
+        errors.push(`${ea.assertArrayField} length ${arr.length} < ${ea.assertArrayMinLength}`);
+      }
+    }
+
+    // Assert status field value
+    if (ea.assertStatus) {
+      const actual = res.body?.status ?? res.body?.applicationStatus;
+      const expected = Array.isArray(ea.assertStatus) ? ea.assertStatus : [ea.assertStatus];
+      if (!expected.includes(actual)) {
+        errors.push(`status="${actual}" (expected one of [${expected.join(', ')}])`);
+      }
+    }
+
+    const passed = errors.length === 0;
+    if (!passed) allPassed = false;
+    const summary = passed
+      ? `HTTP ${res.status} -- ${label} OK`
+      : `${label}: ${errors.join(', ')}`;
+    results.push({ file: label, status: res.status, passed, body: res.body, summary });
+    console.log(`    ${passed ? 'PASS' : 'FAIL'} ${summary}`);
+    await sleep(500);
+  }
+}
+
+function getNestedField(obj, path) {
+  if (!obj || !path) return undefined;
+  return path.split('.').reduce((o, k) => o?.[k], obj);
+}
+
 export const TEST_TYPE_RUNNERS = {
   default: runDefault,
   fraud: validateFraud,
@@ -1830,4 +1973,5 @@ export const TEST_TYPE_RUNNERS = {
   'contract-negative': runContractNegative,
   'callback-echo': runCallbackEcho,
   'cross-validate': runCrossValidateDirect,
+  'api-endpoints': validateApiEndpoints,
 };

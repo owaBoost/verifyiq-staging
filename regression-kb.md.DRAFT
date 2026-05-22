@@ -1,0 +1,43 @@
+## Proposed KB Updates — 2026-05-22 (Wave 6: API endpoint fixtures + hybrid status fix)
+
+### Change 1: ADD to Fixture Registry
+
+Action: ADD
+Section: Fixture Registry
+Entry name: API-APP-LIFECYCLE-001, API-DOC-LIFECYCLE-001, API-BATCH-LIFECYCLE-001
+
+Add 3 rows after BIREXEMPT-001:
+
+| API-APP-LIFECYCLE-001   | Infrastructure | 2 | 0 | - | - | New |
+| API-DOC-LIFECYCLE-001   | Infrastructure | 3 | 0 | - | - | New |
+| API-BATCH-LIFECYCLE-001 | Infrastructure | 2 | 0 | - | - | New |
+
+Evidence: feat/wave6-api-endpoints branch, regression-suite.json
+
+---
+
+### Change 2: ADD to Warning Patterns
+
+Action: ADD
+Section: Warning Patterns
+Entry name: Hybrid status check — callback suppression fast-path
+
+New entry:
+
+### Hybrid status check — callback suppression fast-path
+- Fixtures: all batch fixtures (applies to pollWebhookCallbacks globally)
+- Warning text: 'Application callback suppressed — status COMPLETED verified via GET'
+- Classification: Expected/Known
+- Reason: 2026-05-22 — Added hybrid status check to pollWebhookCallbacks.
+  When all doc callbacks are received but the app callback is missing
+  (fraud score threshold breach causes suppression), the polling loop now
+  immediately calls GET /api/v1/applications/{id}. If status is COMPLETED,
+  the poll closes early instead of waiting the full 300s timeout. Eliminates
+  ~5 min per suppressed fixture (8 fixtures x 5 min = ~40 min off full-suite).
+- First seen: 2026-05-22
+- Recurrence: 0 (infrastructure change, not a warning pattern per se)
+- Notes: The 300s timeout fallback is preserved as a safety net for true
+  failures. The log message text changed from the timeout-fallback version
+  to include elapsed milliseconds.
+
+Evidence: src/utils.mjs pollWebhookCallbacks modification
