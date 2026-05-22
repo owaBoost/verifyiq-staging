@@ -41,3 +41,25 @@ New entry:
   to include elapsed milliseconds.
 
 Evidence: src/utils.mjs pollWebhookCallbacks modification
+
+---
+
+### Change 3: ADD API findings to Pending
+
+Action: ADD
+Section: Pending
+Entry name: API endpoint discovery findings
+
+New entry:
+
+- Wave 6 API endpoint discovery (2026-05-22): Verified available endpoints
+  against staging. Found: GET /applications/{id}, GET /applications/,
+  GET /applications/{id}/documents, GET /documents/{docId}/pages,
+  POST /documents/{docId}/reprocess. Not found (404/405/422):
+  GET /applications/search, GET /applications/{id}/documents/{docId} (single),
+  GET /ai-gateway/batch-upload/{id}/status, GET /ai-gateway/batch-upload/{id}/result.
+  Document IDs differ between callback (client-generated UUID) and API
+  (server-assigned ID from list endpoint). nell-cmyk/verifyiq-smoke not
+  available locally for cross-reference.
+
+Evidence: staging probes during fixture development

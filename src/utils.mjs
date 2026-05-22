@@ -319,6 +319,9 @@ export async function pollWebhookCallbacks(baselineCount, expectedCount, applica
 }
 
 // -- API endpoint helpers (Wave 6) --------------------------------------------
+// Endpoint paths verified 2026-05-22 against staging. Search and single-doc GET
+// do not exist; batch status/result endpoints are not exposed. Helpers below
+// cover the endpoints that actually respond.
 
 export async function callGetApplication(applicationId) {
   const client = createApiClient(false);
@@ -326,16 +329,15 @@ export async function callGetApplication(applicationId) {
   return { status: res.status, body: res.data };
 }
 
-export async function callSearchApplications({ query }) {
+export async function callListApplications() {
   const client = createApiClient(false);
-  const params = new URLSearchParams(query).toString();
-  const res = await client.get(`/api/v1/applications/search?${params}`);
+  const res = await client.get('/api/v1/applications/');
   return { status: res.status, body: res.data };
 }
 
-export async function callGetDocument(applicationId, docId) {
+export async function callListDocuments(applicationId) {
   const client = createApiClient(false);
-  const res = await client.get(`/api/v1/applications/${applicationId}/documents/${docId}`);
+  const res = await client.get(`/api/v1/applications/${applicationId}/documents`);
   return { status: res.status, body: res.data };
 }
 
@@ -347,18 +349,6 @@ export async function callGetDocumentPages(applicationId, docId) {
 
 export async function callReprocessDocument(applicationId, docId) {
   const client = createApiClient(false);
-  const res = await client.post(`/api/v1/applications/${applicationId}/documents/${docId}/reprocess`);
-  return { status: res.status, body: res.data };
-}
-
-export async function callGetBatchStatus(applicationId) {
-  const client = createApiClient(true);
-  const res = await client.get(`/ai-gateway/batch-upload/${applicationId}/status`);
-  return { status: res.status, body: res.data };
-}
-
-export async function callGetBatchResult(applicationId) {
-  const client = createApiClient(true);
-  const res = await client.get(`/ai-gateway/batch-upload/${applicationId}/result`);
+  const res = await client.post(`/api/v1/applications/${applicationId}/documents/${docId}/reprocess`, {});
   return { status: res.status, body: res.data };
 }

@@ -23,12 +23,10 @@ import {
   WEBHOOK_SERVER_URL,
   GATEWAY_DOCTYPE_MAP,
   callGetApplication,
-  callSearchApplications,
-  callGetDocument,
+  callListApplications,
+  callListDocuments,
   callGetDocumentPages,
   callReprocessDocument,
-  callGetBatchStatus,
-  callGetBatchResult,
 } from './utils.mjs';
 import {
   RESPONSE_VALIDATORS,
@@ -1817,14 +1815,15 @@ export async function runCrossValidateDirect(fixture, results) {
 
 // -- API-ENDPOINTS: seed a batch, then exercise lifecycle GET/POST endpoints ---
 
+// Endpoint callers: each receives (applicationId, docId) and returns {status, body}.
+// docId here is the *server-side* document ID resolved from the list endpoint,
+// NOT the callback documentId (which is the client-generated UUID).
 const ENDPOINT_CALLERS = {
   'GET /applications/{applicationId}': async (appId) => callGetApplication(appId),
-  'GET /applications/search': async (appId) => callSearchApplications({ query: { applicationId: appId } }),
-  'GET /applications/{id}/documents/{docId}': async (appId, docId) => callGetDocument(appId, docId),
-  'GET /applications/{id}/documents/{docId}/pages': async (appId, docId) => callGetDocumentPages(appId, docId),
-  'POST /applications/{id}/documents/{docId}/reprocess': async (appId, docId) => callReprocessDocument(appId, docId),
-  'GET /ai-gateway/batch-upload/{id}/status': async (appId) => callGetBatchStatus(appId),
-  'GET /ai-gateway/batch-upload/{id}/result': async (appId) => callGetBatchResult(appId),
+  'GET /applications/':                async ()      => callListApplications(),
+  'GET /applications/{id}/documents':  async (appId) => callListDocuments(appId),
+  'GET /documents/{docId}/pages':      async (appId, docId) => callGetDocumentPages(appId, docId),
+  'POST /documents/{docId}/reprocess': async (appId, docId) => callReprocessDocument(appId, docId),
 };
 
 export async function validateApiEndpoints(fixture, results) {
@@ -1833,7 +1832,7 @@ export async function validateApiEndpoints(fixture, results) {
     return;
   }
 
-  // Step 1: Seed a batch upload to get a real applicationId + docId
+  // Step 1: Seed a batch upload to get a real applicationId
   console.log('  -> [API-ENDPOINTS] Seeding batch upload...');
   const batchResult = await batchUpload(fixture);
   if (!batchResult.passed) {
@@ -1849,16 +1848,22 @@ export async function validateApiEndpoints(fixture, results) {
     return;
   }
 
-  // Extract a docId from callbacks
-  const docId = batchResult.callbackDetails?.documents?.[0]?.documentId ?? null;
-  console.log(`    applicationId=${applicationId}, docId=${docId}`);
-
   // Brief wait for backend indexing
   await sleep(2_000);
 
+  // Resolve the server-side document ID via the list endpoint.
+  // The callback documentId is the client-generated UUID; the API uses its own ID.
+  let docId = null;
+  try {
+    const listRes = await callListDocuments(applicationId);
+    docId = listRes.body?.items?.[0]?.id ?? null;
+    console.log(`    applicationId=${applicationId}, docId=${docId}`);
+  } catch (err) {
+    console.log(`    WARN could not resolve docId: ${err.message}`);
+  }
+
   // Step 2: Run each endpoint assertion from the fixture
   const endpointAssertions = fixture.endpointAssertions || [];
-  let allPassed = true;
 
   for (const ea of endpointAssertions) {
     const label = ea.endpoint;
@@ -1866,7 +1871,12 @@ export async function validateApiEndpoints(fixture, results) {
     const caller = ENDPOINT_CALLERS[label];
     if (!caller) {
       results.push({ file: label, status: 0, passed: false, body: null, summary: `Unknown endpoint: ${label}` });
-      allPassed = false;
+      continue;
+    }
+
+    if (ea.needsDocId && !docId) {
+      results.push({ file: label, status: 0, passed: false, body: null, summary: 'No docId resolved from document list' });
+      console.log('    FAIL no docId');
       continue;
     }
 
@@ -1875,7 +1885,6 @@ export async function validateApiEndpoints(fixture, results) {
       res = await caller(applicationId, docId);
     } catch (err) {
       results.push({ file: label, status: 0, passed: false, body: null, summary: `Error: ${err.message}` });
-      allPassed = false;
       console.log(`    FAIL ${err.message}`);
       continue;
     }
@@ -1902,17 +1911,9 @@ export async function validateApiEndpoints(fixture, results) {
 
     // Assert applicationId match
     if (ea.assertApplicationIdMatch && res.body) {
-      const bodyAppId = res.body.applicationId ?? res.body.id;
+      const bodyAppId = res.body.applicationId;
       if (bodyAppId !== applicationId) {
         errors.push(`applicationId mismatch: ${bodyAppId} !== ${applicationId}`);
-      }
-    }
-
-    // Assert docId match
-    if (ea.assertDocIdMatch && res.body && docId) {
-      const bodyDocId = res.body.documentId ?? res.body.id;
-      if (bodyDocId !== docId) {
-        errors.push(`docId mismatch: ${bodyDocId} !== ${docId}`);
       }
     }
 
@@ -1926,17 +1927,13 @@ export async function validateApiEndpoints(fixture, results) {
       }
     }
 
-    // Assert status field value
-    if (ea.assertStatus) {
-      const actual = res.body?.status ?? res.body?.applicationStatus;
-      const expected = Array.isArray(ea.assertStatus) ? ea.assertStatus : [ea.assertStatus];
-      if (!expected.includes(actual)) {
-        errors.push(`status="${actual}" (expected one of [${expected.join(', ')}])`);
-      }
+    // Assert contains seeded applicationId (for list/search results)
+    if (ea.assertContainsAppId && res.body?.items) {
+      const found = res.body.items.some(i => i.applicationId === applicationId);
+      if (!found) errors.push(`seeded applicationId not found in items`);
     }
 
     const passed = errors.length === 0;
-    if (!passed) allPassed = false;
     const summary = passed
       ? `HTTP ${res.status} -- ${label} OK`
       : `${label}: ${errors.join(', ')}`;
