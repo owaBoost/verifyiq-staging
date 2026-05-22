@@ -22,6 +22,11 @@ import {
   decryptCallback,
   WEBHOOK_SERVER_URL,
   GATEWAY_DOCTYPE_MAP,
+  callGetApplication,
+  callListApplications,
+  callListDocuments,
+  callGetDocumentPages,
+  callReprocessDocument,
 } from './utils.mjs';
 import {
   RESPONSE_VALIDATORS,
@@ -1808,6 +1813,141 @@ export async function runCrossValidateDirect(fixture, results) {
   console.log(`    ${passed ? 'PASS' : 'FAIL'} ${summary}`);
 }
 
+// -- API-ENDPOINTS: seed a batch, then exercise lifecycle GET/POST endpoints ---
+
+// Endpoint callers: each receives (applicationId, docId) and returns {status, body}.
+// docId here is the *server-side* document ID resolved from the list endpoint,
+// NOT the callback documentId (which is the client-generated UUID).
+const ENDPOINT_CALLERS = {
+  'GET /applications/{applicationId}': async (appId) => callGetApplication(appId),
+  'GET /applications/':                async ()      => callListApplications(),
+  'GET /applications/{id}/documents':  async (appId) => callListDocuments(appId),
+  'GET /documents/{docId}/pages':      async (appId, docId) => callGetDocumentPages(appId, docId),
+  'POST /documents/{docId}/reprocess': async (appId, docId) => callReprocessDocument(appId, docId),
+};
+
+export async function validateApiEndpoints(fixture, results) {
+  if (!state.webhookTokenId) {
+    results.push({ file: null, status: 0, passed: false, body: null, summary: 'SKIPPED -- no webhook token' });
+    return;
+  }
+
+  // Step 1: Seed a batch upload to get a real applicationId
+  console.log('  -> [API-ENDPOINTS] Seeding batch upload...');
+  const batchResult = await batchUpload(fixture);
+  if (!batchResult.passed) {
+    results.push({ ...batchResult, file: 'seed-batch' });
+    console.log(`    FAIL seed batch: ${batchResult.summary}`);
+    return;
+  }
+  console.log(`    Seed batch OK`);
+
+  const applicationId = batchResult.body?.applicationId;
+  if (!applicationId) {
+    results.push({ file: 'seed-batch', status: 0, passed: false, body: null, summary: 'Seed batch missing applicationId' });
+    return;
+  }
+
+  // Brief wait for backend indexing
+  await sleep(2_000);
+
+  // Resolve the server-side document ID via the list endpoint.
+  // The callback documentId is the client-generated UUID; the API uses its own ID.
+  let docId = null;
+  try {
+    const listRes = await callListDocuments(applicationId);
+    docId = listRes.body?.items?.[0]?.id ?? null;
+    console.log(`    applicationId=${applicationId}, docId=${docId}`);
+  } catch (err) {
+    console.log(`    WARN could not resolve docId: ${err.message}`);
+  }
+
+  // Step 2: Run each endpoint assertion from the fixture
+  const endpointAssertions = fixture.endpointAssertions || [];
+
+  for (const ea of endpointAssertions) {
+    const label = ea.endpoint;
+    console.log(`  -> [API-ENDPOINTS] ${label}`);
+    const caller = ENDPOINT_CALLERS[label];
+    if (!caller) {
+      results.push({ file: label, status: 0, passed: false, body: null, summary: `Unknown endpoint: ${label}` });
+      continue;
+    }
+
+    if (ea.needsDocId && !docId) {
+      results.push({ file: label, status: 0, passed: false, body: null, summary: 'No docId resolved from document list' });
+      console.log('    FAIL no docId');
+      continue;
+    }
+
+    let res;
+    try {
+      res = await caller(applicationId, docId);
+    } catch (err) {
+      results.push({ file: label, status: 0, passed: false, body: null, summary: `Error: ${err.message}` });
+      console.log(`    FAIL ${err.message}`);
+      continue;
+    }
+
+    const errors = [];
+
+    // Assert HTTP status (supports single number or array of accepted statuses)
+    if (ea.expectedStatus) {
+      const accepted = Array.isArray(ea.expectedStatus) ? ea.expectedStatus : [ea.expectedStatus];
+      if (!accepted.includes(res.status)) {
+        errors.push(`HTTP ${res.status} (expected ${accepted.join(' or ')})`);
+      }
+    }
+
+    // Assert required body fields
+    if (Array.isArray(ea.requiredFields)) {
+      for (const field of ea.requiredFields) {
+        const val = getNestedField(res.body, field);
+        if (val === undefined || val === null) {
+          errors.push(`missing field: ${field}`);
+        }
+      }
+    }
+
+    // Assert applicationId match
+    if (ea.assertApplicationIdMatch && res.body) {
+      const bodyAppId = res.body.applicationId;
+      if (bodyAppId !== applicationId) {
+        errors.push(`applicationId mismatch: ${bodyAppId} !== ${applicationId}`);
+      }
+    }
+
+    // Assert array field present and non-empty
+    if (ea.assertArrayField) {
+      const arr = getNestedField(res.body, ea.assertArrayField);
+      if (!Array.isArray(arr)) {
+        errors.push(`${ea.assertArrayField} is not an array`);
+      } else if (ea.assertArrayMinLength && arr.length < ea.assertArrayMinLength) {
+        errors.push(`${ea.assertArrayField} length ${arr.length} < ${ea.assertArrayMinLength}`);
+      }
+    }
+
+    // Assert contains seeded applicationId (for list/search results)
+    if (ea.assertContainsAppId && res.body?.items) {
+      const found = res.body.items.some(i => i.applicationId === applicationId);
+      if (!found) errors.push(`seeded applicationId not found in items`);
+    }
+
+    const passed = errors.length === 0;
+    const summary = passed
+      ? `HTTP ${res.status} -- ${label} OK`
+      : `${label}: ${errors.join(', ')}`;
+    results.push({ file: label, status: res.status, passed, body: res.body, summary });
+    console.log(`    ${passed ? 'PASS' : 'FAIL'} ${summary}`);
+    await sleep(500);
+  }
+}
+
+function getNestedField(obj, path) {
+  if (!obj || !path) return undefined;
+  return path.split('.').reduce((o, k) => o?.[k], obj);
+}
+
 export const TEST_TYPE_RUNNERS = {
   default: runDefault,
   fraud: validateFraud,
@@ -1830,4 +1970,5 @@ export const TEST_TYPE_RUNNERS = {
   'contract-negative': runContractNegative,
   'callback-echo': runCallbackEcho,
   'cross-validate': runCrossValidateDirect,
+  'api-endpoints': validateApiEndpoints,
 };

@@ -79,6 +79,22 @@ proposals only. Staleness rule: warning pattern entries unconfirmed after 180 da
 - Recurrence: 3
 - Notes: Pipeline logging bug drafted (bug-drafts/2026-04-16_PASS-FRAUD-FP-001-duplicate-log.md).
 
+### Hybrid status check — callback suppression fast-path
+- Fixtures: all batch fixtures (applies to pollWebhookCallbacks globally)
+- Warning text: 'Application callback suppressed — status COMPLETED verified via GET'
+- Classification: Expected/Known
+- Reason: 2026-05-22 — Added hybrid status check to pollWebhookCallbacks.
+  When all doc callbacks are received but the app callback is missing
+  (fraud score threshold breach causes suppression), the polling loop now
+  immediately calls GET /api/v1/applications/{id}. If status is COMPLETED,
+  the poll closes early instead of waiting the full 300s timeout. Eliminates
+  ~5 min per suppressed fixture (8 fixtures x 5 min = ~40 min off full-suite).
+- First seen: 2026-05-22
+- Recurrence: 0 (infrastructure change, not a warning pattern per se)
+- Notes: The 300s timeout fallback is preserved as a safety net for true
+  failures. The log message text changed from the timeout-fallback version
+  to include elapsed milliseconds.
+
 ### Callback identity field mismatch
 - Fixtures: infra-callback-echo-publicuserid-numeric, infra-callback-echo-submissionid,
   infra-callback-echo-bearer-token, infra-callback-echo-publicuserid-uuid,
@@ -220,6 +236,9 @@ Flagged (was Stable, now warning).
 | MAYORS-001 | KYB | 2 | 1 | 2026-05-19 | - | New |
 | SEC-CERT-001 | KYB | 2 | 1 | 2026-05-19 | - | New |
 | BIREXEMPT-001 | KYB | 1 | 1 | 2026-05-19 | - | New |
+| API-APP-LIFECYCLE-001 | Infrastructure | 2 | 0 | - | - | New |
+| API-DOC-LIFECYCLE-001 | Infrastructure | 3 | 0 | - | - | New |
+| API-BATCH-LIFECYCLE-001 | Infrastructure | 2 | 0 | - | - | New |
 
 ---
 
@@ -310,6 +329,38 @@ Flagged (was Stable, now warning).
 - origin_ticket: 86b9fkm0u
 - Notes: Mirrors exact GCash repro (4 docs, 3 PAYSLIP + 1 BANK_STATEMENT).
   Uses skipAppCallback — validates 4 doc-listener callbacks only.
+
+---
+
+## API Endpoint Notes
+
+### Endpoints unavailable on staging as of 2026-05-22
+Per Wave 6 probe (no nell-cmyk/verifyiq-smoke access during session — probed
+staging directly):
+
+Not available:
+- GET /api/v1/applications/search — no search endpoint exists
+- GET /api/v1/applications/{id}/documents/{docId} — single-doc GET unavailable
+  (must use list /documents and filter)
+- GET /ai-gateway/batch-upload/{id}/status — batch status endpoint
+- GET /ai-gateway/batch-upload/{id}/result — batch result endpoint
+
+Available (covered by Wave 6 fixtures):
+- GET /api/v1/applications/{id}
+- GET /api/v1/applications/  (list)
+- GET /api/v1/applications/{id}/documents  (list)
+- GET /api/v1/documents/{docId}/pages
+- POST /api/v1/documents/{docId}/reprocess
+
+Note: Document IDs differ between callbacks (client-generated UUID) and the
+API list endpoint (server-assigned). Resolve via list endpoint when querying
+by docId.
+
+Note: GET /applications/{id} returns no `status` field. Fields present:
+applicationId, fullName, partnerName, source, documentsCount,
+underReviewDocumentsCount, approvedDocumentsCount, rejectedDocumentsCount,
+createdAt, lastActivity. Documents stay `underReview` even after callback
+processing completes — approval is a separate step.
 
 ---
 

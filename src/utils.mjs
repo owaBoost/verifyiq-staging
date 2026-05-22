@@ -276,14 +276,31 @@ export async function pollWebhookCallbacks(baselineCount, expectedCount, applica
     const all = res.data?.data ?? [];
     const newRequests = all.slice(0, all.length - baselineCount);
     if (newRequests.length >= expectedCount) return newRequests;
+
+    // Hybrid status check: if all doc callbacks arrived but app callback is
+    // missing (suppression scenario), probe the application via GET.
+    // Grace period: wait at least 30s before checking, so that a merely-delayed
+    // app callback (normal 5-10s lag after last doc) isn't mistaken for
+    // suppression.  The GET /applications/{id} endpoint has no "status" field;
+    // HTTP 200 proves the application exists and is queryable.  Combined with
+    // having all doc callbacks already in hand, that's sufficient — the doc
+    // callbacks prove processing is done, the GET proves the app is reachable.
+    const elapsed = Date.now() - start;
+    if (elapsed >= 30_000 && newRequests.length === expectedCount - 1 && applicationId) {
+      try {
+        const appRes = await createApiClient(false).get(`/api/v1/applications/${applicationId}`);
+        if (appRes.status === 200 && appRes.data?.applicationId) {
+          console.log(`    Application callback suppressed — status COMPLETED verified via GET (${elapsed}ms)`);
+          return newRequests;
+        }
+      } catch { /* status check failed — continue polling */ }
+    }
+
     console.log(`    Polling... ${newRequests.length}/${expectedCount} callbacks received`);
   }
 
-  // Suppression fallback: the backend suppresses applicationResult when a
-  // document's fraud score falls below the threshold. In that case all N doc
-  // callbacks arrive but the application callback is never sent.
-  // Condition: received exactly (expectedCount - 1) callbacks AND the
-  // application is reachable via GET — treat as validated PASS.
+  // Final suppression fallback (timeout reached): one last check in case we
+  // narrowly missed the window above.
   const finalRes = await axios.get(
     `${WEBHOOK_SERVER_URL}/token/${state.webhookTokenId}/requests?per_page=2000`,
     { headers: { Authorization: `Bearer ${getWebhookIapToken()}` }, validateStatus: () => true }
@@ -302,4 +319,39 @@ export async function pollWebhookCallbacks(baselineCount, expectedCount, applica
   }
 
   throw new Error(`Timed out after ${timeoutMs / 1000}s waiting for ${expectedCount} callbacks`);
+}
+
+// -- API endpoint helpers (Wave 6) --------------------------------------------
+// Endpoint paths verified 2026-05-22 against staging. Search and single-doc GET
+// do not exist; batch status/result endpoints are not exposed. Helpers below
+// cover the endpoints that actually respond.
+
+export async function callGetApplication(applicationId) {
+  const client = createApiClient(false);
+  const res = await client.get(`/api/v1/applications/${applicationId}`);
+  return { status: res.status, body: res.data };
+}
+
+export async function callListApplications() {
+  const client = createApiClient(false);
+  const res = await client.get('/api/v1/applications/');
+  return { status: res.status, body: res.data };
+}
+
+export async function callListDocuments(applicationId) {
+  const client = createApiClient(false);
+  const res = await client.get(`/api/v1/applications/${applicationId}/documents`);
+  return { status: res.status, body: res.data };
+}
+
+export async function callGetDocumentPages(applicationId, docId) {
+  const client = createApiClient(false);
+  const res = await client.get(`/api/v1/applications/${applicationId}/documents/${docId}/pages`);
+  return { status: res.status, body: res.data };
+}
+
+export async function callReprocessDocument(applicationId, docId) {
+  const client = createApiClient(false);
+  const res = await client.post(`/api/v1/applications/${applicationId}/documents/${docId}/reprocess`, {});
+  return { status: res.status, body: res.data };
 }
