@@ -1,0 +1,10 @@
+## Proposed KB Updates — Wave 7 Part B (PS-FRAUD-ASYNC-001)
+
+### 1. ADD — Pending
+
+Action: ADD
+Section: Pending
+Entry name: PS-FRAUD-ASYNC-001
+Proposed content:
+- PS-FRAUD-ASYNC-001: async fraud-status endpoint partially deployed on staging as of 2026-05-23. GET /v1/documents/fraud-status/{id} exists (returns 404 "Fraud job not found or expired." for bad ID, 405 for POST). No submit endpoint found (POST /v1/documents/fraud-check → generic 404). Blocked — no way to trigger async fraud job.
+Evidence: Wave 7 Part B probe 2026-05-23
