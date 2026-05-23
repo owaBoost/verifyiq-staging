@@ -1387,14 +1387,14 @@
     },
     {
       "id": "BATCH-WRONG-TYPE-001",
-      "documentType": "Payslip",
+      "documentType": "BankStatement",
       "testType": "batch-wrong-type",
       "smoke": false,
-      "description": "Wrong docType — BDO bank statement + electricity bill both submitted as Payslip, expect DOCUMENT_TYPE_MISMATCH",
+      "description": "Wrong docType — electricity bill submitted as BankStatement (tracks open bug: parser permissive) + as Payslip (expect DOCUMENT_TYPE_MISMATCH)",
       "files": [
         {
-          "gcsPath": "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/BDO_BankStatement.png",
-          "documentType": "Payslip"
+          "gcsPath": "gs://verifyiq-internal-testing/QA/Gcash/HP-SUP-03.JPG",
+          "documentType": "BankStatement"
         },
         {
           "gcsPath": "gs://verifyiq-internal-testing/QA/Gcash/HP-SUP-03.JPG",

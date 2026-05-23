@@ -113,6 +113,27 @@ proposals only. Staleness rule: warning pattern entries unconfirmed after 180 da
   and not echoed in callback payloads. Pattern guards publicUserId and submissionId
   only. The bearer-token echo fixture tests coercion resistance via publicUserId.
 
+### BANK_STATEMENT parser permissive — accepts wrong document type without mismatch
+- Fixtures: BATCH-WRONG-TYPE-001 (BankStatement case)
+- Warning text: 'electricity bill submitted as BankStatement: no failureReason,
+  ocrResult.documentData populated with misextracted fields'
+- Classification: Needs Investigation
+- Reason: When HP-SUP-03.JPG (a valid electricity bill) is submitted as
+  documentType BankStatement in a multi-doc batch, the parser accepts it
+  without triggering DOCUMENT_TYPE_MISMATCH. It extracts the name and address
+  from the electricity bill into bank statement fields, but all financial
+  fields are null (no transactions, no debits/credits, no account number,
+  gs_bankname_bankstatement=null, gs_sources_bankstatement="99: Unidentified
+  Sources", completenessScore=46). The PAYSLIP parser correctly rejects the
+  same document with DOCUMENT_TYPE_MISMATCH. The BANK_STATEMENT parser
+  should also reject it.
+- First seen: 2026-05-23
+- Recurrence: 1
+- Distinguishing signal: failureReason absent + gs_sources_bankstatement
+  contains "99: Unidentified Sources" + completenessScore < 50
+- Notes: BATCH-WRONG-TYPE-001 BankStatement case will FAIL until parser is
+  fixed. Fixture intentionally tracks this open bug.
+
 ---
 
 ## Fragile Fixtures
@@ -245,7 +266,7 @@ Flagged (was Stable, now warning).
 | EXPORT-DOC-001 | Infrastructure | 1 | 0 | - | - | New |
 | CACHE-CHECK-001 | Infrastructure | 2 | 0 | - | - | New |
 | BATCH-QR-RANDOM-001 | Contract Negative | 3 | 0 | - | - | New |
-| BATCH-WRONG-TYPE-001 | Contract Negative | 2 | 0 | - | - | New |
+| BATCH-WRONG-TYPE-001 | Contract Negative | 2 | 0 | - | - | Watched - tracks open bug (BS parser permissive) |
 
 ---
 
