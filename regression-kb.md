@@ -245,6 +245,7 @@ Flagged (was Stable, now warning).
 | EXPORT-DOC-001 | Infrastructure | 1 | 0 | - | - | New |
 | CACHE-CHECK-001 | Infrastructure | 2 | 0 | - | - | New |
 | BATCH-QR-RANDOM-001 | Contract Negative | 3 | 0 | - | - | New |
+| BATCH-WRONG-TYPE-001 | Contract Negative | 2 | 0 | - | - | New |
 
 ---
 
@@ -399,6 +400,26 @@ single-doc uploads to BANK_STATEMENT regardless of submitted type).
 
 qualityCheckFindings example:
   [{type: "others", status: "failed", description: "Image does not appear to contain a valid document."}]
+
+### Document type mismatch path (Wave 9b, 2026-05-23)
+
+When a valid document is submitted as the wrong documentType in a multi-doc
+batch, the parser returns failureReason='DOCUMENT_TYPE_MISMATCH' with
+status='COMPLETED', documentData undefined. The parser's internal classifier
+detects the content doesn't match the declared type.
+
+Behavior by submitted type (using a valid electricity bill as test doc):
+- As PAYSLIP → DOCUMENT_TYPE_MISMATCH (correctly rejected)
+- As ELECTRICITY_BILL → no failure (correctly accepted)
+- As BANK_STATEMENT → no failure (parser is permissive for BANK_STATEMENT —
+  accepts any document-like image, extracts with null fields and low
+  completenessScore)
+
+Note: single-doc batch uploads normalize all types to BANK_STATEMENT at the
+gateway level. DOCUMENT_TYPE_MISMATCH only fires in multi-doc batches where
+the gateway preserves the submitted documentType per document.
+
+App callback is suppressed for wrong-type batches (same hybrid fallback).
 
 ### Non-standard contract behavior on staging (2026-05-22)
 Discovered during Wave 7 negative endpoint probing:
