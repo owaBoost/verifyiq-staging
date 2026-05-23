@@ -1307,7 +1307,10 @@
           "endpoint": "GET /applications/{id}/export",
           "expectedStatus": 200,
           "assertApplicationIdMatch": true,
-          "requiredFields": ["applicationId", "status", "ocrResult"]
+          "requiredFields": ["applicationId", "status", "ocrResult", "ocrResult.computedFields"],
+          "assertFieldEquals": [
+            { "field": "status", "value": "COMPLETED" }
+          ]
         }
       ],
       "section": "Infrastructure"
@@ -1327,7 +1330,11 @@
           "expectedStatus": 200,
           "needsDocId": true,
           "assertApplicationIdMatch": true,
-          "requiredFields": ["applicationId", "documentId", "status", "documentType", "ocrResult"]
+          "requiredFields": ["applicationId", "documentId", "status", "documentType", "ocrResult", "ocrResult.documentData"],
+          "assertFieldEquals": [
+            { "field": "status", "value": "COMPLETED" },
+            { "field": "documentType", "value": "BANK_STATEMENT" }
+          ]
         }
       ],
       "section": "Infrastructure"
@@ -1343,7 +1350,8 @@
       "cacheCheckCases": [
         {
           "format": "batch",
-          "label": "batch format (1 item)",
+          "label": "batch cached (BDO — parsed in prior runs)",
+          "expectCached": true,
           "items": [
             {
               "file_url": "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/BDO_BankStatement.png",
@@ -1353,7 +1361,8 @@
         },
         {
           "format": "legacy",
-          "label": "legacy single format",
+          "label": "legacy cached (BDO)",
+          "expectCached": true,
           "file": "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/BDO_BankStatement.png",
           "fileType": "BankStatement"
         }
