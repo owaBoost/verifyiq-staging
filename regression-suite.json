@@ -1359,6 +1359,31 @@
         }
       ],
       "section": "Infrastructure"
+    },
+    {
+      "id": "BATCH-QR-RANDOM-001",
+      "documentType": "BankStatement",
+      "testType": "batch-quality-reject",
+      "smoke": false,
+      "description": "Batch quality-reject — random image submitted as 3 docTypes, all must be QUALITY_REJECTED",
+      "files": [
+        {
+          "gcsPath": "gs://verifyiq-internal-testing/QA/Gcash/Gcash Random Image.png",
+          "documentType": "BankStatement",
+          "qualityFieldPrefix": "bankStatement"
+        },
+        {
+          "gcsPath": "gs://verifyiq-internal-testing/QA/Gcash/Gcash Random Image.png",
+          "documentType": "Payslip",
+          "qualityFieldPrefix": "payslip"
+        },
+        {
+          "gcsPath": "gs://verifyiq-internal-testing/QA/Gcash/Gcash Random Image.png",
+          "documentType": "ElectricUtilityBillingStatement",
+          "qualityFieldPrefix": "elecbill"
+        }
+      ],
+      "section": "Contract Negative"
     }
   ]
 }

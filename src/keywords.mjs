@@ -2041,6 +2041,125 @@ export async function validateApiSecurity(fixture, results) {
   }
 }
 
+// -- BATCH-QUALITY-REJECT: batch upload, assert all docs quality-rejected -----
+
+export async function validateBatchQualityReject(fixture, results) {
+  if (!state.webhookTokenId) {
+    results.push({ file: null, status: 0, passed: false, body: null, summary: 'SKIPPED -- no webhook token' });
+    return;
+  }
+
+  const fileEntries = fixture.files || [];
+  const webhookIapHeader = { Authorization: `Bearer ${getWebhookIapToken()}` };
+
+  // Build documents array — each entry has its own documentType
+  const documents = fileEntries.map(f => ({
+    documentId: randomUUID(), fileId: randomUUID(), documentClassification: 'PRIMARY',
+    documentType: GATEWAY_DOCTYPE_MAP[f.documentType] || f.documentType,
+    filename: f.gcsPath.split('/').pop(), preSignedUrl: f.gcsPath,
+  }));
+
+  let baselineCount;
+  try { baselineCount = await getWebhookBaseline(); console.log(`    Webhook baseline: ${baselineCount}`); }
+  catch (err) { results.push({ file: null, status: 0, passed: false, body: null, summary: `Webhook baseline failed: ${err.message}` }); return; }
+
+  const client = createApiClient(true);
+  const payload = {
+    payload: { publicUserId: `regression-${fixture.id}-${Date.now()}`, submissionId: randomUUID(), documents },
+    callbacks: {
+      documentResult: { url: `${WEBHOOK_SERVER_URL}/${state.webhookTokenId}`, method: 'POST', headers: webhookIapHeader },
+      applicationResult: { url: `${WEBHOOK_SERVER_URL}/${state.webhookTokenId}`, method: 'POST', headers: webhookIapHeader },
+    },
+  };
+
+  let batchStatus, batchBody;
+  try { const res = await client.post('/ai-gateway/batch-upload', payload); batchStatus = res.status; batchBody = res.data; }
+  catch (err) { results.push({ file: null, status: 0, passed: false, body: null, summary: `POST error: ${err.message}` }); return; }
+
+  console.log(`    POST response: HTTP ${batchStatus}`);
+  if (batchStatus !== 200) { results.push({ file: null, status: batchStatus, passed: false, body: batchBody, summary: `HTTP ${batchStatus}` }); return; }
+  const applicationId = batchBody.applicationId;
+  console.log(`    HTTP 200, applicationId=${applicationId}`);
+
+  // Wait for doc callbacks (app callback may be suppressed)
+  const expectedCallbacks = documents.length + 1;
+  let callbacks;
+  try {
+    console.log(`    Waiting for ${expectedCallbacks} callbacks (${documents.length} doc + 1 app)...`);
+    callbacks = await pollWebhookCallbacks(baselineCount, expectedCallbacks, applicationId);
+    console.log(`    Received ${callbacks.length} callbacks`);
+  } catch (err) { results.push({ file: null, status: batchStatus, passed: false, body: null, summary: `Polling: ${err.message}` }); return; }
+
+  // Build lookup from gateway docType to fixture entry for prefix matching
+  const prefixByGatewayType = {};
+  for (const entry of fileEntries) {
+    const gw = GATEWAY_DOCTYPE_MAP[entry.documentType] || entry.documentType;
+    prefixByGatewayType[gw] = entry.qualityFieldPrefix;
+  }
+
+  // Decrypt and validate each doc callback
+  let docIndex = 0;
+  for (const cb of callbacks) {
+    const rawBody = cb.content ?? cb.body ?? JSON.stringify(cb);
+    let decrypted;
+    try { decrypted = await decryptCallback(rawBody); }
+    catch (err) {
+      if (err.prSkip) { console.log(`    ${err.message}`); continue; }
+      results.push({ file: `decrypt-${docIndex}`, status: 0, passed: false, body: null, summary: `Decrypt failed: ${err.message}` });
+      continue;
+    }
+
+    // Skip app callbacks
+    if (!decrypted.documentId) {
+      console.log(`    Application callback (appId=${decrypted.applicationId}, status=${decrypted.status})`);
+      continue;
+    }
+
+    const cbDocType = decrypted.documentType || 'unknown';
+    const label = `doc-${docIndex + 1} (${cbDocType})`;
+    console.log(`  -> [BATCH-QR] ${label}`);
+    const errors = [];
+
+    // Assert quality-rejected
+    if (decrypted.status !== 'COMPLETED') errors.push(`status="${decrypted.status}" (expected COMPLETED)`);
+    if (decrypted.failureReason !== 'QUALITY_REJECTED') errors.push(`failureReason="${decrypted.failureReason}" (expected QUALITY_REJECTED)`);
+
+    // Assert documentData absent (undefined or null)
+    if (decrypted.documentData !== undefined && decrypted.documentData !== null) {
+      errors.push(`documentData present (expected null/undefined)`);
+    }
+
+    // Assert qualityCheck findings in ocrResult
+    const qc = decrypted.ocrResult?.qualityCheck;
+    if (!qc) {
+      errors.push('missing ocrResult.qualityCheck');
+    } else {
+      const findings = qc.qualityCheckFindings;
+      if (!Array.isArray(findings) || findings.length === 0) {
+        errors.push('qualityCheckFindings empty or missing');
+      } else {
+        if (findings[0].status !== 'failed') errors.push(`findings[0].status="${findings[0].status}" (expected "failed")`);
+      }
+
+      // Match quality score prefix by callback documentType (not positional index)
+      const prefix = prefixByGatewayType[cbDocType];
+      if (prefix) {
+        const scoreKey = `gs_overallQualityScore_${prefix}`;
+        if (qc[scoreKey] === undefined) errors.push(`missing ${scoreKey}`);
+        else console.log(`    ${scoreKey} = ${qc[scoreKey]}`);
+      }
+    }
+
+    const passed = errors.length === 0;
+    const summary = passed
+      ? `HTTP 200 -- ${label} quality-rejected OK`
+      : `${label}: ${errors.join(', ')}`;
+    results.push({ file: label, status: batchStatus, passed, body: null, summary });
+    console.log(`    ${passed ? 'PASS' : 'FAIL'} ${summary}`);
+    docIndex++;
+  }
+}
+
 // -- CACHE-CHECK: POST /v1/documents/check-cache assertions ------------------
 
 export async function validateCacheCheck(fixture, results) {
@@ -2119,4 +2238,5 @@ export const TEST_TYPE_RUNNERS = {
   'api-endpoints': validateApiEndpoints,
   'api-security': validateApiSecurity,
   'cache-check': validateCacheCheck,
+  'batch-quality-reject': validateBatchQualityReject,
 };

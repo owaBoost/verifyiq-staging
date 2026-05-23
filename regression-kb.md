@@ -244,6 +244,7 @@ Flagged (was Stable, now warning).
 | EXPORT-APP-001 | Infrastructure | 1 | 0 | - | - | New |
 | EXPORT-DOC-001 | Infrastructure | 1 | 0 | - | - | New |
 | CACHE-CHECK-001 | Infrastructure | 2 | 0 | - | - | New |
+| BATCH-QR-RANDOM-001 | Contract Negative | 3 | 0 | - | - | New |
 
 ---
 
@@ -378,6 +379,26 @@ applicationId, fullName, partnerName, source, documentsCount,
 underReviewDocumentsCount, approvedDocumentsCount, rejectedDocumentsCount,
 createdAt, lastActivity. Documents stay `underReview` even after callback
 processing completes — approval is a separate step.
+
+### Quality-reject callback path (Wave 9, 2026-05-23)
+
+Quality-reject path: failureReason='QUALITY_REJECTED' with status='COMPLETED'
+(not FAILED), documentData undefined (not null), qualityCheck populated under
+ocrResult.qualityCheck (not at root). App callback IS suppressed (same as
+fraud threshold breach — hybrid status-check fallback needed).
+
+Quality score field prefixes per gateway documentType:
+- BANK_STATEMENT → gs_overallQualityScore_bankStatement (camelCase)
+- PAYSLIP → gs_overallQualityScore_payslip
+- ELECTRICITY_BILL → gs_overallQualityScore_elecbill
+
+When a single random image is submitted as all 3 docTypes in one batch,
+each callback correctly returns its own documentType and prefix.
+When submitted individually, all 3 return BANK_STATEMENT (gateway normalizes
+single-doc uploads to BANK_STATEMENT regardless of submitted type).
+
+qualityCheckFindings example:
+  [{type: "others", status: "failed", description: "Image does not appear to contain a valid document."}]
 
 ### Non-standard contract behavior on staging (2026-05-22)
 Discovered during Wave 7 negative endpoint probing:
