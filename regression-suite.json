@@ -1292,6 +1292,73 @@
         }
       ],
       "section": "Infrastructure"
+    },
+    {
+      "id": "EXPORT-APP-001",
+      "documentType": "BankStatement",
+      "testType": "api-endpoints",
+      "smoke": false,
+      "description": "API lifecycle — GET /api/v1/applications/{id}/export returns full application export JSON",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/BDO_BankStatement.png"
+      ],
+      "endpointAssertions": [
+        {
+          "endpoint": "GET /applications/{id}/export",
+          "expectedStatus": 200,
+          "assertApplicationIdMatch": true,
+          "requiredFields": ["applicationId", "status", "ocrResult"]
+        }
+      ],
+      "section": "Infrastructure"
+    },
+    {
+      "id": "EXPORT-DOC-001",
+      "documentType": "BankStatement",
+      "testType": "api-endpoints",
+      "smoke": false,
+      "description": "API lifecycle — GET /api/v1/applications/{id}/documents/{docId}/export returns document export JSON",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/BDO_BankStatement.png"
+      ],
+      "endpointAssertions": [
+        {
+          "endpoint": "GET /documents/{docId}/export",
+          "expectedStatus": 200,
+          "needsDocId": true,
+          "assertApplicationIdMatch": true,
+          "requiredFields": ["applicationId", "documentId", "status", "documentType", "ocrResult"]
+        }
+      ],
+      "section": "Infrastructure"
+    },
+    {
+      "id": "CACHE-CHECK-001",
+      "documentType": "BankStatement",
+      "testType": "cache-check",
+      "smoke": false,
+      "description": "POST /v1/documents/check-cache — batch and legacy formats, verify response shape",
+      "files": [],
+      "skipBatch": true,
+      "cacheCheckCases": [
+        {
+          "format": "batch",
+          "label": "batch format (1 item)",
+          "items": [
+            {
+              "file_url": "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/BDO_BankStatement.png",
+              "document_type": "BankStatement"
+            }
+          ]
+        },
+        {
+          "format": "legacy",
+          "label": "legacy single format",
+          "file": "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/BDO_BankStatement.png",
+          "fileType": "BankStatement"
+        }
+      ],
+      "section": "Infrastructure"
     }
   ]
 }

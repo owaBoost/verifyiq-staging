@@ -361,3 +361,15 @@ export async function callListActivities() {
   const res = await client.get('/api/v1/activities');
   return { status: res.status, body: res.data };
 }
+
+export async function callExportApplication(applicationId) {
+  const client = createApiClient(false);
+  const res = await client.get(`/api/v1/applications/${applicationId}/export`);
+  return { status: res.status, body: res.data };
+}
+
+export async function callExportDocument(applicationId, docId) {
+  const client = createApiClient(false);
+  const res = await client.get(`/api/v1/applications/${applicationId}/documents/${docId}/export`);
+  return { status: res.status, body: res.data };
+}
