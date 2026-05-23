@@ -685,14 +685,16 @@
       "smoke": true,
       "documentType": "health",
       "testType": "health",
-      "description": "Health endpoints — startup, live, ready, detailed, circuit breakers",
+      "description": "Health endpoints — startup, live, ready, detailed, circuit breakers, gateway, webhook server",
       "files": [],
       "endpoints": [
         "/health/startup",
         "/health/live",
         "/health/ready",
         "/health/detailed",
-        "/ai-gateway/health/gateway-circuit-breakers"
+        "/ai-gateway/health/gateway-circuit-breakers",
+        "POST /ai-gateway/health",
+        "WEBHOOK:/health"
       ],
       "skipBatch": true,
       "section": "Infrastructure"
@@ -1267,6 +1269,26 @@
           "authMode": "none",
           "expectedStatus": 422,
           "label": "POST reprocess — no auth"
+        }
+      ],
+      "section": "Infrastructure"
+    },
+    {
+      "id": "API-ACTIVITIES-001",
+      "documentType": "BankStatement",
+      "testType": "api-endpoints",
+      "smoke": false,
+      "description": "API lifecycle — GET /api/v1/activities returns audit log containing seeded application",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/bank_financial/BankStatement/BDO_BankStatement.png"
+      ],
+      "endpointAssertions": [
+        {
+          "endpoint": "GET /activities",
+          "expectedStatus": 200,
+          "assertArrayField": "items",
+          "assertArrayMinLength": 1,
+          "assertContainsAppId": true
         }
       ],
       "section": "Infrastructure"
