@@ -28,6 +28,8 @@ import {
   callGetDocumentPages,
   callReprocessDocument,
   callListActivities,
+  callExportApplication,
+  callExportDocument,
 } from './utils.mjs';
 import {
   RESPONSE_VALIDATORS,
@@ -1854,6 +1856,8 @@ const ENDPOINT_CALLERS = {
   'GET /documents/{docId}/pages':      async (appId, docId) => callGetDocumentPages(appId, docId),
   'POST /documents/{docId}/reprocess': async (appId, docId) => callReprocessDocument(appId, docId),
   'GET /activities':                   async ()      => callListActivities(),
+  'GET /applications/{id}/export':     async (appId) => callExportApplication(appId),
+  'GET /documents/{docId}/export':     async (appId, docId) => callExportDocument(appId, docId),
 };
 
 export async function validateApiEndpoints(fixture, results) {
@@ -2037,6 +2041,59 @@ export async function validateApiSecurity(fixture, results) {
   }
 }
 
+// -- CACHE-CHECK: POST /v1/documents/check-cache assertions ------------------
+
+export async function validateCacheCheck(fixture, results) {
+  const cases = fixture.cacheCheckCases || [];
+
+  for (const tc of cases) {
+    const label = tc.label || `check-cache [${tc.format}]`;
+    console.log(`  -> [CACHE-CHECK] ${label}`);
+
+    const client = createApiClient(false);
+    let body;
+    if (tc.format === 'batch') {
+      body = { items: tc.items.map(i => ({ file_url: i.file_url, document_type: i.document_type })) };
+    } else {
+      body = { file: tc.file, fileType: tc.fileType };
+    }
+
+    let res;
+    try {
+      res = await client.post('/v1/documents/check-cache', body);
+    } catch (err) {
+      results.push({ file: label, status: 0, passed: false, body: null, summary: `Error: ${err.message}` });
+      console.log(`    FAIL ${err.message}`);
+      continue;
+    }
+
+    const errors = [];
+    if (res.status !== 200) {
+      errors.push(`HTTP ${res.status} (expected 200)`);
+    } else if (tc.format === 'batch') {
+      if (!Array.isArray(res.data?.items)) errors.push('missing items array');
+      if (typeof res.data?.cached_count !== 'number') errors.push('missing cached_count');
+      if (typeof res.data?.uncached_count !== 'number') errors.push('missing uncached_count');
+      if (res.data?.items?.length !== tc.items.length) errors.push(`items length ${res.data?.items?.length} !== ${tc.items.length}`);
+      // Each item must have file_url and is_cached
+      for (const item of (res.data?.items || [])) {
+        if (typeof item.is_cached !== 'boolean') errors.push(`item missing is_cached: ${item.file_url}`);
+      }
+    } else {
+      if (typeof res.data?.cached !== 'boolean') errors.push('missing cached field');
+      if (typeof res.data?.documentHash !== 'string' && res.data?.documentHash !== null) errors.push('missing documentHash');
+    }
+
+    const passed = errors.length === 0;
+    const summary = passed
+      ? `HTTP ${res.status} -- ${label} OK`
+      : `${label}: ${errors.join(', ')}`;
+    results.push({ file: label, status: res.status, passed, body: res.data, summary });
+    console.log(`    ${passed ? 'PASS' : 'FAIL'} ${summary}`);
+    await sleep(500);
+  }
+}
+
 export const TEST_TYPE_RUNNERS = {
   default: runDefault,
   fraud: validateFraud,
@@ -2061,4 +2118,5 @@ export const TEST_TYPE_RUNNERS = {
   'cross-validate': runCrossValidateDirect,
   'api-endpoints': validateApiEndpoints,
   'api-security': validateApiSecurity,
+  'cache-check': validateCacheCheck,
 };

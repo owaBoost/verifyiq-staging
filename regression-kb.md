@@ -241,6 +241,9 @@ Flagged (was Stable, now warning).
 | API-BATCH-LIFECYCLE-001 | Infrastructure | 2 | 0 | - | - | New |
 | API-SEC-NEGATIVE-001 | Infrastructure | 11 | 0 | - | - | New |
 | API-ACTIVITIES-001 | Infrastructure | 1 | 0 | - | - | New |
+| EXPORT-APP-001 | Infrastructure | 1 | 0 | - | - | New |
+| EXPORT-DOC-001 | Infrastructure | 1 | 0 | - | - | New |
+| CACHE-CHECK-001 | Infrastructure | 2 | 0 | - | - | New |
 
 ---
 
@@ -356,6 +359,15 @@ Available (covered by Wave 6–8 fixtures):
 - GET /api/v1/activities  (audit log; returns {items, meta}; wave 8)
 - POST /ai-gateway/health  (gateway health; GET returns 405, must POST; wave 8)
 - GET {WEBHOOK_SERVER_URL}/health  (webhook server health; wave 8)
+- GET /api/v1/applications/{id}/export  (app-level export; returns JSON with applicationId, status, ocrResult; wave 8b)
+- GET /api/v1/applications/{id}/documents/{docId}/export  (doc-level export; returns JSON with Content-Disposition attachment; wave 8b)
+- POST /v1/documents/check-cache  (dedicated cache check; batch format {items} and legacy {file, fileType}; wave 8b)
+- GET /openapi.json  (OpenAPI 3.1.0 spec; covers /v1/* and /health/* only — /api/v1/* and /ai-gateway/* are separate services; wave 8b)
+- GET /docs, GET /redoc  (Swagger UI and ReDoc HTML; wave 8b)
+
+Skipped (destructive per smoke convention):
+- DELETE /v1/documents/cache  (invalidate cache; exists per OpenAPI spec)
+- DELETE /v1/documents/cache/ocr  (invalidate OCR cache; exists per OpenAPI spec)
 
 Note: Document IDs differ between callbacks (client-generated UUID) and the
 API list endpoint (server-assigned). Resolve via list endpoint when querying
