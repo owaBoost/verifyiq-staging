@@ -1384,6 +1384,24 @@
         }
       ],
       "section": "Contract Negative"
+    },
+    {
+      "id": "BATCH-WRONG-TYPE-001",
+      "documentType": "BankStatement",
+      "testType": "batch-wrong-type",
+      "smoke": false,
+      "description": "Wrong docType — electricity bill submitted as BankStatement (mismatch via fraudChecks) + as Payslip (mismatch via failureReason)",
+      "files": [
+        {
+          "gcsPath": "gs://verifyiq-internal-testing/QA/Gcash/HP-SUP-03.JPG",
+          "documentType": "BankStatement"
+        },
+        {
+          "gcsPath": "gs://verifyiq-internal-testing/QA/Gcash/HP-SUP-03.JPG",
+          "documentType": "Payslip"
+        }
+      ],
+      "section": "Contract Negative"
     }
   ]
 }

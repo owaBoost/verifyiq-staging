@@ -2160,6 +2160,114 @@ export async function validateBatchQualityReject(fixture, results) {
   }
 }
 
+// -- BATCH-WRONG-TYPE: batch upload, assert all docs get DOCUMENT_TYPE_MISMATCH
+
+export async function validateBatchWrongType(fixture, results) {
+  if (!state.webhookTokenId) {
+    results.push({ file: null, status: 0, passed: false, body: null, summary: 'SKIPPED -- no webhook token' });
+    return;
+  }
+
+  const fileEntries = fixture.files || [];
+  const webhookIapHeader = { Authorization: `Bearer ${getWebhookIapToken()}` };
+
+  const documents = fileEntries.map(f => ({
+    documentId: randomUUID(), fileId: randomUUID(), documentClassification: 'PRIMARY',
+    documentType: GATEWAY_DOCTYPE_MAP[f.documentType] || f.documentType,
+    filename: f.gcsPath.split('/').pop(), preSignedUrl: f.gcsPath,
+  }));
+
+  let baselineCount;
+  try { baselineCount = await getWebhookBaseline(); console.log(`    Webhook baseline: ${baselineCount}`); }
+  catch (err) { results.push({ file: null, status: 0, passed: false, body: null, summary: `Webhook baseline failed: ${err.message}` }); return; }
+
+  const client = createApiClient(true);
+  const payload = {
+    payload: { publicUserId: `regression-${fixture.id}-${Date.now()}`, submissionId: randomUUID(), documents },
+    callbacks: {
+      documentResult: { url: `${WEBHOOK_SERVER_URL}/${state.webhookTokenId}`, method: 'POST', headers: webhookIapHeader },
+      applicationResult: { url: `${WEBHOOK_SERVER_URL}/${state.webhookTokenId}`, method: 'POST', headers: webhookIapHeader },
+    },
+  };
+
+  let batchStatus, batchBody;
+  try { const res = await client.post('/ai-gateway/batch-upload', payload); batchStatus = res.status; batchBody = res.data; }
+  catch (err) { results.push({ file: null, status: 0, passed: false, body: null, summary: `POST error: ${err.message}` }); return; }
+
+  console.log(`    POST response: HTTP ${batchStatus}`);
+  if (batchStatus !== 200) { results.push({ file: null, status: batchStatus, passed: false, body: batchBody, summary: `HTTP ${batchStatus}` }); return; }
+  const applicationId = batchBody.applicationId;
+  console.log(`    HTTP 200, applicationId=${applicationId}`);
+
+  const expectedCallbacks = documents.length + 1;
+  let callbacks;
+  try {
+    console.log(`    Waiting for ${expectedCallbacks} callbacks (${documents.length} doc + 1 app)...`);
+    callbacks = await pollWebhookCallbacks(baselineCount, expectedCallbacks, applicationId);
+    console.log(`    Received ${callbacks.length} callbacks`);
+  } catch (err) { results.push({ file: null, status: batchStatus, passed: false, body: null, summary: `Polling: ${err.message}` }); return; }
+
+  let docIndex = 0;
+  for (const cb of callbacks) {
+    const rawBody = cb.content ?? cb.body ?? JSON.stringify(cb);
+    let decrypted;
+    try { decrypted = await decryptCallback(rawBody); }
+    catch (err) {
+      if (err.prSkip) { console.log(`    ${err.message}`); continue; }
+      results.push({ file: `decrypt-${docIndex}`, status: 0, passed: false, body: null, summary: `Decrypt failed: ${err.message}` });
+      continue;
+    }
+
+    if (!decrypted.documentId) {
+      console.log(`    Application callback (appId=${decrypted.applicationId}, status=${decrypted.status})`);
+      continue;
+    }
+
+    const cbDocType = decrypted.documentType || 'unknown';
+    const label = `doc-${docIndex + 1} (${cbDocType})`;
+    console.log(`  -> [WRONG-TYPE] ${label}`);
+    const errors = [];
+
+    if (decrypted.status !== 'COMPLETED') errors.push(`status="${decrypted.status}" (expected COMPLETED)`);
+
+    const fc = decrypted.ocrResult?.fraudChecks;
+
+    if (cbDocType === 'BANK_STATEMENT') {
+      // BANK_STATEMENT signals mismatch via fraudChecks, not failureReason
+      const prefix = 'bankstatement';
+      const statusReason = fc?.[`gs_fraudCheckStatusReason_${prefix}`];
+      if (statusReason !== 'document_type_mismatch') {
+        errors.push(`gs_fraudCheckStatusReason_${prefix}="${statusReason}" (expected "document_type_mismatch")`);
+      }
+      if (fc?.[`gs_isFraudulent_${prefix}`] !== 1) {
+        errors.push(`gs_isFraudulent_${prefix}=${fc?.[`gs_isFraudulent_${prefix}`]} (expected 1)`);
+      }
+      const findings = fc?.fraudCheckFindings || [];
+      const hasMismatchFinding = findings.some(f =>
+        f.type === 'others_fraud' && f.description?.includes('does not match the declared document type'));
+      if (!hasMismatchFinding) {
+        errors.push('missing fraudCheckFindings entry with type=others_fraud + "does not match the declared document type"');
+      }
+    } else {
+      // PAYSLIP and ELECTRICITY_BILL signal mismatch via failureReason
+      if (decrypted.failureReason !== 'DOCUMENT_TYPE_MISMATCH') {
+        errors.push(`failureReason="${decrypted.failureReason || 'none'}" (expected DOCUMENT_TYPE_MISMATCH)`);
+      }
+      if (decrypted.documentData !== undefined && decrypted.documentData !== null) {
+        errors.push('documentData present (expected null/undefined)');
+      }
+    }
+
+    const passed = errors.length === 0;
+    const summary = passed
+      ? `HTTP 200 -- ${label} mismatch detected OK`
+      : `${label}: ${errors.join(', ')}`;
+    results.push({ file: label, status: batchStatus, passed, body: null, summary });
+    console.log(`    ${passed ? 'PASS' : 'FAIL'} ${summary}`);
+    docIndex++;
+  }
+}
+
 // -- CACHE-CHECK: POST /v1/documents/check-cache assertions ------------------
 
 export async function validateCacheCheck(fixture, results) {
@@ -2239,4 +2347,5 @@ export const TEST_TYPE_RUNNERS = {
   'api-security': validateApiSecurity,
   'cache-check': validateCacheCheck,
   'batch-quality-reject': validateBatchQualityReject,
+  'batch-wrong-type': validateBatchWrongType,
 };

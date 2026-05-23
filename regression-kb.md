@@ -113,6 +113,26 @@ proposals only. Staleness rule: warning pattern entries unconfirmed after 180 da
   and not echoed in callback payloads. Pattern guards publicUserId and submissionId
   only. The bearer-token echo fixture tests coercion resistance via publicUserId.
 
+### Document type mismatch signal inconsistency
+- Fixtures: BATCH-WRONG-TYPE-001
+- Classification: Needs Investigation
+- First seen: 2026-05-22 (corrected analysis 2026-05-23)
+- Recurrence: 1
+- Description: The batch-upload pipeline detects DOCUMENT_TYPE_MISMATCH
+  for all three tested doc types, but signals the result inconsistently:
+    - PAYSLIP and ELECTRICITY_BILL: failureReason field (document-level)
+    - BANK_STATEMENT: fraudChecks.gs_fraudCheckStatusReason_bankstatement
+      (routed through fraud checks, flagged as gs_isFraudulent=1 even
+      though fraud check was skipped)
+  The detection logic works for all three. The contract is inconsistent
+  — consumers must check different fields per doc type to handle the
+  same logical event.
+- Distinguishing signal: BANK_STATEMENT mismatch is
+  gs_fraudCheckStatusReason_bankstatement === "document_type_mismatch" +
+  gs_isFraudulent_bankstatement === 1 + fraudCheckFindings contains
+  type "others_fraud" with "does not match the declared document type"
+- Notes: BATCH-WRONG-TYPE-001 asserts per-docType signals — both cases PASS.
+
 ---
 
 ## Fragile Fixtures
@@ -245,6 +265,7 @@ Flagged (was Stable, now warning).
 | EXPORT-DOC-001 | Infrastructure | 1 | 0 | - | - | New |
 | CACHE-CHECK-001 | Infrastructure | 2 | 0 | - | - | New |
 | BATCH-QR-RANDOM-001 | Contract Negative | 3 | 0 | - | - | New |
+| BATCH-WRONG-TYPE-001 | Contract Negative | 2 | 1 | 2026-05-23 | - | Watched |
 
 ---
 
@@ -399,6 +420,35 @@ single-doc uploads to BANK_STATEMENT regardless of submitted type).
 
 qualityCheckFindings example:
   [{type: "others", status: "failed", description: "Image does not appear to contain a valid document."}]
+
+### Document type mismatch path (Wave 9b, 2026-05-23)
+
+When a valid document is submitted as the wrong documentType in a multi-doc
+batch via POST /ai-gateway/batch-upload, the batch-upload pipeline returns
+failureReason='DOCUMENT_TYPE_MISMATCH' with status='COMPLETED', documentData
+undefined.
+
+Behavior by submitted type (using a valid electricity bill as test doc):
+- As PAYSLIP → DOCUMENT_TYPE_MISMATCH (correctly rejected)
+- As ELECTRICITY_BILL → no failure (correctly accepted)
+- As BANK_STATEMENT → no failure (batch-upload pipeline is permissive for
+  BANK_STATEMENT — the BankStatement extractor runs against the wrong
+  document and emits partial data with null fields and low completenessScore)
+
+Note: single-doc batch uploads normalize all types to BANK_STATEMENT at the
+gateway level. DOCUMENT_TYPE_MISMATCH only fires in multi-doc batches where
+the gateway preserves the submitted documentType per document.
+
+App callback is suppressed for wrong-type batches (same hybrid fallback).
+
+Minor contract anomalies in the same response (Wave 9b, 2026-05-23):
+- statementPeriodStart/End returned as Excel-style serial dates (e.g. 46049,
+  46079) not ISO format
+- Mixed casing in field names: gs_overallQualityScore_bankStatement (camelCase)
+  vs gs_isFraudulent_bankstatement (lowercase) in the same response
+- gs_fraudCheckStatus="skipped" but gs_isFraudulent=1 — flagged fraudulent
+  despite skipped fraud check (because of type mismatch routing through
+  fraud checks layer)
 
 ### Non-standard contract behavior on staging (2026-05-22)
 Discovered during Wave 7 negative endpoint probing:
