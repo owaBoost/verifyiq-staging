@@ -113,26 +113,28 @@ proposals only. Staleness rule: warning pattern entries unconfirmed after 180 da
   and not echoed in callback payloads. Pattern guards publicUserId and submissionId
   only. The bearer-token echo fixture tests coercion resistance via publicUserId.
 
-### BANK_STATEMENT parser permissive — accepts wrong document type without mismatch
+### BANK_STATEMENT batch-upload permissive — accepts wrong document type without DOCUMENT_TYPE_MISMATCH
 - Fixtures: BATCH-WRONG-TYPE-001 (BankStatement case)
-- Warning text: 'electricity bill submitted as BankStatement: no failureReason,
-  ocrResult.documentData populated with misextracted fields'
+- Warning text: 'electricity bill submitted as BankStatement via batch-upload:
+  no failureReason, ocrResult.documentData populated with misextracted fields'
 - Classification: Needs Investigation
+- Endpoint affected: POST /ai-gateway/batch-upload
 - Reason: When HP-SUP-03.JPG (a valid electricity bill) is submitted as
-  documentType BankStatement in a multi-doc batch, the parser accepts it
-  without triggering DOCUMENT_TYPE_MISMATCH. It extracts the name and address
-  from the electricity bill into bank statement fields, but all financial
-  fields are null (no transactions, no debits/credits, no account number,
-  gs_bankname_bankstatement=null, gs_sources_bankstatement="99: Unidentified
-  Sources", completenessScore=46). The PAYSLIP parser correctly rejects the
-  same document with DOCUMENT_TYPE_MISMATCH. The BANK_STATEMENT parser
-  should also reject it.
+  documentType BankStatement in a multi-doc batch via POST /ai-gateway/
+  batch-upload, the batch-upload pipeline does not trigger DOCUMENT_TYPE_MISMATCH.
+  The BankStatement extractor runs against the wrong document and emits partial
+  data: accountHolderName and billingAddress extracted from the electricity bill,
+  but all financial fields are null (no transactions, no debits/credits, no
+  account number, gs_bankname_bankstatement=null, gs_sources_bankstatement=
+  "99: Unidentified Sources", completenessScore=46). PAYSLIP and
+  ELECTRICITY_BILL via the same endpoint correctly return failureReason:
+  DOCUMENT_TYPE_MISMATCH for mismatched documents; BANK_STATEMENT does not.
 - First seen: 2026-05-23
 - Recurrence: 1
 - Distinguishing signal: failureReason absent + gs_sources_bankstatement
   contains "99: Unidentified Sources" + completenessScore < 50
-- Notes: BATCH-WRONG-TYPE-001 BankStatement case will FAIL until parser is
-  fixed. Fixture intentionally tracks this open bug.
+- Notes: BATCH-WRONG-TYPE-001 BankStatement case will FAIL until the
+  batch-upload pipeline is fixed. Fixture intentionally tracks this open bug.
 
 ---
 
@@ -266,7 +268,7 @@ Flagged (was Stable, now warning).
 | EXPORT-DOC-001 | Infrastructure | 1 | 0 | - | - | New |
 | CACHE-CHECK-001 | Infrastructure | 2 | 0 | - | - | New |
 | BATCH-QR-RANDOM-001 | Contract Negative | 3 | 0 | - | - | New |
-| BATCH-WRONG-TYPE-001 | Contract Negative | 2 | 0 | - | - | Watched - tracks open bug (BS parser permissive) |
+| BATCH-WRONG-TYPE-001 | Contract Negative | 2 | 0 | - | - | Watched - tracks open bug (BS batch-upload permissive) |
 
 ---
 
@@ -425,16 +427,16 @@ qualityCheckFindings example:
 ### Document type mismatch path (Wave 9b, 2026-05-23)
 
 When a valid document is submitted as the wrong documentType in a multi-doc
-batch, the parser returns failureReason='DOCUMENT_TYPE_MISMATCH' with
-status='COMPLETED', documentData undefined. The parser's internal classifier
-detects the content doesn't match the declared type.
+batch via POST /ai-gateway/batch-upload, the batch-upload pipeline returns
+failureReason='DOCUMENT_TYPE_MISMATCH' with status='COMPLETED', documentData
+undefined.
 
 Behavior by submitted type (using a valid electricity bill as test doc):
 - As PAYSLIP → DOCUMENT_TYPE_MISMATCH (correctly rejected)
 - As ELECTRICITY_BILL → no failure (correctly accepted)
-- As BANK_STATEMENT → no failure (parser is permissive for BANK_STATEMENT —
-  accepts any document-like image, extracts with null fields and low
-  completenessScore)
+- As BANK_STATEMENT → no failure (batch-upload pipeline is permissive for
+  BANK_STATEMENT — the BankStatement extractor runs against the wrong
+  document and emits partial data with null fields and low completenessScore)
 
 Note: single-doc batch uploads normalize all types to BANK_STATEMENT at the
 gateway level. DOCUMENT_TYPE_MISMATCH only fires in multi-doc batches where
