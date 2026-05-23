@@ -234,8 +234,9 @@ export function buildTaskDescription(fixture, results) {
   if (fixture.files?.length) {
     desc.push('Fixtures:');
     for (const f of fixture.files) {
-      const fn = f.split('/').pop();
-      desc.push(`${fn} | ${f}`);
+      const path = typeof f === 'string' ? f : f.gcsPath || JSON.stringify(f);
+      const fn = path.split('/').pop();
+      desc.push(`${fn} | ${path}`);
     }
     desc.push('');
   }
