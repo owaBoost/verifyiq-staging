@@ -239,6 +239,7 @@ Flagged (was Stable, now warning).
 | API-APP-LIFECYCLE-001 | Infrastructure | 2 | 0 | - | - | New |
 | API-DOC-LIFECYCLE-001 | Infrastructure | 3 | 0 | - | - | New |
 | API-BATCH-LIFECYCLE-001 | Infrastructure | 2 | 0 | - | - | New |
+| API-SEC-NEGATIVE-001 | Infrastructure | 11 | 0 | - | - | New |
 
 ---
 
@@ -349,8 +350,8 @@ Available (covered by Wave 6 fixtures):
 - GET /api/v1/applications/{id}
 - GET /api/v1/applications/  (list)
 - GET /api/v1/applications/{id}/documents  (list)
-- GET /api/v1/documents/{docId}/pages
-- POST /api/v1/documents/{docId}/reprocess
+- GET /api/v1/applications/{appId}/documents/{docId}/pages  (app-scoped; /api/v1/documents/{docId}/pages does NOT exist)
+- POST /api/v1/applications/{appId}/documents/{docId}/reprocess  (app-scoped; /api/v1/documents/{docId}/reprocess does NOT exist)
 
 Note: Document IDs differ between callbacks (client-generated UUID) and the
 API list endpoint (server-assigned). Resolve via list endpoint when querying
@@ -362,8 +363,45 @@ underReviewDocumentsCount, approvedDocumentsCount, rejectedDocumentsCount,
 createdAt, lastActivity. Documents stay `underReview` even after callback
 processing completes — approval is a separate step.
 
+### Non-standard contract behavior on staging (2026-05-22)
+Discovered during Wave 7 negative endpoint probing:
+- Missing X-Tenant-Token returns 422 (Unprocessable Entity), not 401.
+  API uses validation-error semantics for missing auth headers rather than
+  standard auth-error semantics.
+- POST /reprocess with non-existent docId returns 403, not 404. This may
+  leak existence information (attacker can infer whether a docId exists by
+  observing 403 vs 200/400 responses).
+- GET /applications/{id}/documents with bad applicationId returns 200 with
+  empty list, not 404. Cannot detect bad app IDs via this endpoint.
+- GET /v1/documents/fraud-status/{id} has no auth enforcement — returns 404
+  for any caller, even unauthenticated. Potential information disclosure
+  if endpoint becomes functional.
+
+These are not regression bugs but contract design concerns worth surfacing
+to the API team.
+
+### Negative-case response codes (Wave 7 probe, 2026-05-23)
+
+Staging does NOT return 401 for missing auth. All /api/v1/* endpoints return
+**422** ("X-Tenant-Token required") when no auth headers are provided.
+
+| Endpoint | Case | Expected (spec) | Actual (staging) |
+|----------|------|-----------------|------------------|
+| GET /api/v1/applications/{id} | bad ID | 404 | 404 |
+| GET /api/v1/applications/{id} | no auth | 401 | 422 |
+| GET /api/v1/applications/{id} | wrong key | 403 | 403 |
+| GET /api/v1/applications/ | no auth | 401 | 422 |
+| GET /api/v1/applications/ | wrong key | 403 | 403 |
+| GET /api/v1/applications/{id}/documents | bad ID | 404 | 200 (empty list) |
+| GET /api/v1/applications/{id}/documents | no auth | 401 | 422 |
+| GET /api/v1/applications/{appId}/documents/{docId}/pages | bad IDs | 404 | 404 |
+| GET /api/v1/applications/{appId}/documents/{docId}/pages | no auth | 401 | 422 |
+| POST /api/v1/applications/{appId}/documents/{docId}/reprocess | bad IDs | 404 | 403 |
+| POST /api/v1/applications/{appId}/documents/{docId}/reprocess | no auth | 401 | 422 |
+
 ---
 
 ## Pending
 
 - TC-ELEC-03 / TC-ELEC-04: fixtures confirmed in GCS, not yet in suite. Blocked on elecbill-rules runner (PRIMARY bank statement + SUPPORTING electricity bill assembly, extract computedFields.ELECTRICITY_BILL.data.gs_180days_valid_elecbill). Wire in when runner is ready.
+- PS-FRAUD-ASYNC-001: async fraud-status endpoint partially deployed on staging as of 2026-05-23. GET /v1/documents/fraud-status/{id} exists (returns 404 "Fraud job not found or expired." for bad ID, 405 for POST). No submit endpoint found (POST /v1/documents/fraud-check → generic 404). Blocked — no way to trigger async fraud job.

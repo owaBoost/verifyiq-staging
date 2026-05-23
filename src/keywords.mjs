@@ -1948,6 +1948,65 @@ function getNestedField(obj, path) {
   return path.split('.').reduce((o, k) => o?.[k], obj);
 }
 
+// -- API-SECURITY: negative-case endpoint assertions -------------------------
+// Each fixture.securityCases is an array of {method, path, authMode, expectedStatus}.
+// authMode: "valid" (normal API key), "none" (no headers), "wrong-key" (invalid key).
+// No seed batch needed — all cases use synthetic/bad IDs.
+
+function buildSecurityClient(authMode) {
+  const baseURL = getBaseUrl();
+  if (authMode === 'none') {
+    return axios.create({
+      baseURL, headers: { 'Content-Type': 'application/json' },
+      validateStatus: () => true, timeout: 15000,
+    });
+  }
+  if (authMode === 'wrong-key') {
+    return axios.create({
+      baseURL,
+      headers: { Authorization: 'Bearer sk_wrong_key_12345', 'X-Tenant-Token': 'sk_wrong_key_12345', 'Content-Type': 'application/json' },
+      validateStatus: () => true, timeout: 15000,
+    });
+  }
+  // "valid" — use the normal authenticated client
+  return createApiClient(false);
+}
+
+export async function validateApiSecurity(fixture, results) {
+  const cases = fixture.securityCases || [];
+
+  for (const tc of cases) {
+    const label = `${tc.method} ${tc.path} [${tc.authMode}]`;
+    console.log(`  -> [API-SEC] ${label}`);
+
+    const client = buildSecurityClient(tc.authMode);
+    let res;
+    try {
+      if (tc.method === 'GET') {
+        res = await client.get(tc.path);
+      } else if (tc.method === 'POST') {
+        res = await client.post(tc.path, tc.body || {});
+      } else {
+        results.push({ file: label, status: 0, passed: false, body: null, summary: `Unsupported method: ${tc.method}` });
+        continue;
+      }
+    } catch (err) {
+      results.push({ file: label, status: 0, passed: false, body: null, summary: `Error: ${err.message}` });
+      console.log(`    FAIL ${err.message}`);
+      continue;
+    }
+
+    const accepted = Array.isArray(tc.expectedStatus) ? tc.expectedStatus : [tc.expectedStatus];
+    const passed = accepted.includes(res.status);
+    const summary = passed
+      ? `HTTP ${res.status} -- ${label} OK`
+      : `${label}: expected ${accepted.join('/')}, got ${res.status}`;
+    results.push({ file: label, status: res.status, passed, body: res.data, summary });
+    console.log(`    ${passed ? 'PASS' : 'FAIL'} ${summary}`);
+    await sleep(1000);
+  }
+}
+
 export const TEST_TYPE_RUNNERS = {
   default: runDefault,
   fraud: validateFraud,
@@ -1971,4 +2030,5 @@ export const TEST_TYPE_RUNNERS = {
   'callback-echo': runCallbackEcho,
   'cross-validate': runCrossValidateDirect,
   'api-endpoints': validateApiEndpoints,
+  'api-security': validateApiSecurity,
 };

@@ -1182,6 +1182,94 @@
         }
       ],
       "section": "Infrastructure"
+    },
+    {
+      "id": "API-SEC-NEGATIVE-001",
+      "documentType": "BankStatement",
+      "testType": "api-security",
+      "smoke": false,
+      "description": "Negative endpoint coverage — bad IDs, missing auth, wrong keys across /api/v1 lifecycle endpoints",
+      "files": [],
+      "securityCases": [
+        {
+          "method": "GET",
+          "path": "/api/v1/applications/00000000-0000-0000-0000-000000000000",
+          "authMode": "valid",
+          "expectedStatus": 404,
+          "label": "GET application — bad ID"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/applications/00000000-0000-0000-0000-000000000000",
+          "authMode": "none",
+          "expectedStatus": 422,
+          "label": "GET application — no auth"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/applications/00000000-0000-0000-0000-000000000000",
+          "authMode": "wrong-key",
+          "expectedStatus": 403,
+          "label": "GET application — wrong key"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/applications/",
+          "authMode": "none",
+          "expectedStatus": 422,
+          "label": "GET applications list — no auth"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/applications/",
+          "authMode": "wrong-key",
+          "expectedStatus": 403,
+          "label": "GET applications list — wrong key"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/applications/00000000-0000-0000-0000-000000000000/documents",
+          "authMode": "valid",
+          "expectedStatus": 200,
+          "label": "GET documents — bad app ID (returns empty list)"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/applications/00000000-0000-0000-0000-000000000000/documents",
+          "authMode": "none",
+          "expectedStatus": 422,
+          "label": "GET documents — no auth"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/applications/00000000-0000-0000-0000-000000000000/documents/00000000-0000-0000-0000-000000000000/pages",
+          "authMode": "valid",
+          "expectedStatus": 404,
+          "label": "GET document pages — bad IDs"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/applications/00000000-0000-0000-0000-000000000000/documents/00000000-0000-0000-0000-000000000000/pages",
+          "authMode": "none",
+          "expectedStatus": 422,
+          "label": "GET document pages — no auth"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/applications/00000000-0000-0000-0000-000000000000/documents/00000000-0000-0000-0000-000000000000/reprocess",
+          "authMode": "valid",
+          "expectedStatus": 403,
+          "label": "POST reprocess — bad IDs"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/applications/00000000-0000-0000-0000-000000000000/documents/00000000-0000-0000-0000-000000000000/reprocess",
+          "authMode": "none",
+          "expectedStatus": 422,
+          "label": "POST reprocess — no auth"
+        }
+      ],
+      "section": "Infrastructure"
     }
   ]
 }
