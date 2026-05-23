@@ -27,6 +27,7 @@ import {
   callListDocuments,
   callGetDocumentPages,
   callReprocessDocument,
+  callListActivities,
 } from './utils.mjs';
 import {
   RESPONSE_VALIDATORS,
@@ -587,36 +588,64 @@ export async function validateCompleteness(fixture, results) {
 export async function validateHealth(fixture, results) {
   const endpoints = fixture.endpoints || [];
   for (const endpoint of endpoints) {
-    console.log(`  -> [HEALTH] GET ${endpoint}`);
+    // Determine method and client based on endpoint config
+    const isPost = endpoint.startsWith('POST ');
+    const path = isPost ? endpoint.slice(5) : endpoint;
+    const isWebhook = path.startsWith('WEBHOOK:');
+    const actualPath = isWebhook ? path.slice(8) : path;
+    const methodLabel = isPost ? 'POST' : 'GET';
+
+    console.log(`  -> [HEALTH] ${methodLabel} ${isWebhook ? '{WEBHOOK}' : ''}${actualPath}`);
     try {
-      const useIap = endpoint.startsWith('/ai-gateway/');
-      const client = createApiClient(useIap);
-      const res = await client.get(endpoint);
+      let res;
+      if (isWebhook) {
+        // Use webhook server base URL
+        const webhookClient = axios.create({
+          baseURL: WEBHOOK_SERVER_URL, headers: { 'Content-Type': 'application/json' },
+          validateStatus: () => true, timeout: 15000,
+        });
+        res = isPost ? await webhookClient.post(actualPath, {}) : await webhookClient.get(actualPath);
+      } else {
+        const useIap = path.startsWith('/ai-gateway/');
+        const client = createApiClient(useIap);
+        res = isPost ? await client.post(path, {}) : await client.get(path);
+      }
       const errors = [];
 
       if (res.status !== 200) {
         errors.push(`HTTP ${res.status}`);
       } else {
-        if (endpoint === '/health/detailed') {
+        if (actualPath === '/health/detailed') {
           if (res.data?.cache?.redis?.healthy !== true) console.log('    WARN redis.healthy not true (non-blocking — PG failover active)');
           if (res.data?.cache?.healthy !== true) errors.push('cache.healthy not true');
           if (res.data?.cache?.postgresql?.healthy !== true) errors.push('postgresql.healthy not true');
         }
-        if (endpoint.includes('circuit-breakers')) {
+        if (actualPath.includes('circuit-breakers')) {
           if (res.data?.boost_callback?.state !== 'closed') errors.push(`boost_callback.state="${res.data?.boost_callback?.state}"`);
         }
-        if (endpoint === '/health/startup' || endpoint === '/health/live' || endpoint === '/health/ready') {
+        if (actualPath === '/health/startup' || actualPath === '/health/live' || actualPath === '/health/ready') {
           const s = String(res.data?.status ?? '').toLowerCase();
           if (s !== 'ok' && s !== 'healthy' && res.status !== 200) errors.push(`unexpected status="${res.data?.status}"`);
         }
+        // ai-gateway health assertions
+        if (actualPath === '/ai-gateway/health') {
+          if (res.data?.status !== 'healthy') errors.push(`status="${res.data?.status}" (expected "healthy")`);
+          if (res.data?.service !== 'ai-gateway-api') errors.push(`service="${res.data?.service}" (expected "ai-gateway-api")`);
+        }
+        // Webhook server health assertions
+        if (isWebhook && actualPath === '/health') {
+          if (res.data?.status !== 'ok') errors.push(`status="${res.data?.status}" (expected "ok")`);
+        }
       }
 
+      const label = isWebhook ? `{WEBHOOK}${actualPath}` : actualPath;
       const passed = errors.length === 0;
-      results.push({ file: endpoint, status: res.status, passed, body: null,
-        summary: passed ? `HTTP 200 -- ${endpoint} OK` : `${endpoint}: ${errors.join(', ')}` });
+      results.push({ file: label, status: res.status, passed, body: null,
+        summary: passed ? `HTTP 200 -- ${label} OK` : `${label}: ${errors.join(', ')}` });
       console.log(`    ${passed ? 'PASS' : 'FAIL'} ${results.at(-1).summary}`);
     } catch (err) {
-      results.push({ file: endpoint, status: 0, passed: false, body: null, summary: `Error: ${err.message}` });
+      const label = isWebhook ? `{WEBHOOK}${actualPath}` : actualPath;
+      results.push({ file: label, status: 0, passed: false, body: null, summary: `Error: ${err.message}` });
     }
     await sleep(500);
   }
@@ -1824,6 +1853,7 @@ const ENDPOINT_CALLERS = {
   'GET /applications/{id}/documents':  async (appId) => callListDocuments(appId),
   'GET /documents/{docId}/pages':      async (appId, docId) => callGetDocumentPages(appId, docId),
   'POST /documents/{docId}/reprocess': async (appId, docId) => callReprocessDocument(appId, docId),
+  'GET /activities':                   async ()      => callListActivities(),
 };
 
 export async function validateApiEndpoints(fixture, results) {

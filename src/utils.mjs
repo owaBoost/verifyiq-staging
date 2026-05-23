@@ -355,3 +355,9 @@ export async function callReprocessDocument(applicationId, docId) {
   const res = await client.post(`/api/v1/applications/${applicationId}/documents/${docId}/reprocess`, {});
   return { status: res.status, body: res.data };
 }
+
+export async function callListActivities() {
+  const client = createApiClient(false);
+  const res = await client.get('/api/v1/activities');
+  return { status: res.status, body: res.data };
+}

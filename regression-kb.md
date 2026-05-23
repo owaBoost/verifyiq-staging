@@ -218,7 +218,7 @@ Flagged (was Stable, now warning).
 | PASS-FRAUD-FP-001 | Fraud | 2 | 0 | - | 2026-04-16 | Watched |
 | ELEC-FRAUD-001 | Fraud | 1 | 3 | 2026-04-16 | - | New |
 | BIR-FRAUD-001 | Fraud | 1 | 3 | 2026-04-16 | - | New |
-| HEALTH-001 | Infrastructure | 5 | 4 | 2026-05-19 | - | New |
+| HEALTH-001 | Infrastructure | 7 | 4 | 2026-05-19 | - | New |
 | SEC-001 | Infrastructure | 3 | 4 | 2026-05-19 | - | New |
 | CACHE-001 | Infrastructure | 2 | 4 | 2026-05-19 | - | New |
 | CROSS-001 | Infrastructure | 1 | 3 | 2026-04-16 | - | New |
@@ -240,6 +240,7 @@ Flagged (was Stable, now warning).
 | API-DOC-LIFECYCLE-001 | Infrastructure | 3 | 0 | - | - | New |
 | API-BATCH-LIFECYCLE-001 | Infrastructure | 2 | 0 | - | - | New |
 | API-SEC-NEGATIVE-001 | Infrastructure | 11 | 0 | - | - | New |
+| API-ACTIVITIES-001 | Infrastructure | 1 | 0 | - | - | New |
 
 ---
 
@@ -346,12 +347,15 @@ Not available:
 - GET /ai-gateway/batch-upload/{id}/status — batch status endpoint
 - GET /ai-gateway/batch-upload/{id}/result — batch result endpoint
 
-Available (covered by Wave 6 fixtures):
+Available (covered by Wave 6–8 fixtures):
 - GET /api/v1/applications/{id}
 - GET /api/v1/applications/  (list)
 - GET /api/v1/applications/{id}/documents  (list)
 - GET /api/v1/applications/{appId}/documents/{docId}/pages  (app-scoped; /api/v1/documents/{docId}/pages does NOT exist)
 - POST /api/v1/applications/{appId}/documents/{docId}/reprocess  (app-scoped; /api/v1/documents/{docId}/reprocess does NOT exist)
+- GET /api/v1/activities  (audit log; returns {items, meta}; wave 8)
+- POST /ai-gateway/health  (gateway health; GET returns 405, must POST; wave 8)
+- GET {WEBHOOK_SERVER_URL}/health  (webhook server health; wave 8)
 
 Note: Document IDs differ between callbacks (client-generated UUID) and the
 API list endpoint (server-assigned). Resolve via list endpoint when querying
@@ -398,6 +402,34 @@ Staging does NOT return 401 for missing auth. All /api/v1/* endpoints return
 | GET /api/v1/applications/{appId}/documents/{docId}/pages | no auth | 401 | 422 |
 | POST /api/v1/applications/{appId}/documents/{docId}/reprocess | bad IDs | 404 | 403 |
 | POST /api/v1/applications/{appId}/documents/{docId}/reprocess | no auth | 401 | 422 |
+
+### Wave 8 endpoint discovery (2026-05-23)
+
+Probed staging for uncovered endpoints beyond wave 6–7 coverage:
+
+Discovered (covered by new fixtures):
+- GET /api/v1/activities — audit log endpoint, returns paginated activity items
+  (DOCUMENT_CREATED, etc.) per tenant. Filter param ?application_id= is
+  ignored — returns all activities regardless. HEALTH-001 expanded to include
+  POST /ai-gateway/health and GET {WEBHOOK}/health.
+
+Discovered (not fixture-worthy):
+- POST /v1/documents/crosscheck — exists, requires previousDocumentsData field;
+  already covered by BLS-CROSSVALIDATE-001 via batch upload path
+- POST /api/v1/cross-validate — exists, requires real applicationId; already
+  covered by BLS-CROSSVALIDATE-001
+- POST /api/v1/applications/ — exists, requires documents[] array; app creation
+  is via this endpoint (same as batch upload path)
+- GET /ai-gateway/health — returns 405 (GET not allowed), must use POST
+- GET {WEBHOOK}/token/{id} — returns specific 404 "Token not found" (endpoint
+  exists but no persistent token listing)
+
+Confirmed dead-end (generic 404):
+- GET /ai-gateway/applications/{id}, /batch-upload/{id}, /documents, /config
+- GET /api/v1/documents/{id} (single doc GET — confirmed missing, wave 6 finding)
+- GET /api/v1/document-types, /documents/, /tenants/me, /stats, /usage
+- GET /v1/health, /v1/documents/types
+- GET {WEBHOOK}/tokens
 
 ---
 
