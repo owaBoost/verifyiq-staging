@@ -133,6 +133,60 @@ proposals only. Staleness rule: warning pattern entries unconfirmed after 180 da
   type "others_fraud" with "does not match the declared document type"
 - Notes: BATCH-WRONG-TYPE-001 asserts per-docType signals — both cases PASS.
 
+### Bank-deep posting_date format regression
+- Fixtures: BS-DEEP-BDO-001, BS-DEEP-BPI-001, BS-DEEP-MAYA-001
+- Warning text: 'posting_date "September 10, 2023" not YYYY-MM-DD' (varies per fixture)
+- Classification: Needs Investigation
+- Reason: Bank-deep single-parse runner validates posting_date format as YYYY-MM-DD
+  but BDO, BPI, and Maya bank statements return non-ISO date formats from the API
+  (e.g. "September 10, 2023", "Sep 16", "14 Nov, 06:33 PM"). These are API-side
+  format inconsistencies, not runner bugs — the batch-deep variants (Metro, UB, GoTyme)
+  return MM/DD/YYYY which the runner parses correctly.
+- First seen: 2026-05-19
+- Recurrence: 2+ (fires every full regression run)
+
+### PS-QR-001 quality-reject runner summaryOCR check
+- Fixtures: PS-QR-001
+- Warning text: 'HTTP 200 but validation failed: missing or empty summaryOCR'
+- Classification: Needs Investigation
+- Reason: PS-QR-001 uses the quality-reject testType which validates via parseDocument.
+  The blurry test document returns HTTP 200 but summaryOCR is empty/missing. The
+  quality-reject runner should check qualityCheck fields (qualityCheckFindings,
+  gs_overallQualityScore) rather than summaryOCR, since quality-rejected docs may
+  legitimately have no summaryOCR. This is a runner assertion bug, not an API bug.
+- First seen: 2026-04-16
+- Recurrence: 3+ (fires every full regression run)
+
+### Undocumented code-level warning patterns (audit 2026-05-23)
+- Classification: Expected/Known (infrastructure — these fire in validators but
+  are not regressions; they document known field gaps per document type)
+- Warning paths in validators.mjs not previously tracked in KB:
+  1. `missing fraudCheckFindings` (BankStatement validator, line 68) — fires when
+     fraudCheckFindings absent on bank statements. Expected on non-fraud pipelines.
+  2. `missing billing_period in summaryOCR` (ElectricUtilityBillingStatement
+     validator, line 36) — fires when billing_period not extracted.
+  3. `missing gs_amountdue_elecbill in gshare_fields` (ElectricUtilityBillingStatement
+     validator, line 38) — fires when gshare amount due field absent.
+  4. `document_type != GcashTransactionHistory` (GcashTransactionHistory validator,
+     line 120) — fires when API returns mismatched documentType.
+  5. `callback documentType mismatch` (validateDocumentCallback, line 321) — fires
+     when callback documentType doesn't match submitted gateway type.
+  6. `crossCheckFindings not present in app callback` (payslip-rules runner,
+     line 1311) — fires when app callback lacks crossCheckFindings.
+- First seen: pre-2026-04-16 (present in code since initial validators)
+- Notes: These are code-level guards, not regression patterns. Tracked here for
+  completeness per audit recommendation. No action required unless frequency changes.
+
+### SSS-001 intermittent HTTP 503
+- Fixtures: SSS-001
+- Warning text: 'HTTP 503 -- "Service Unavailable"'
+- Classification: Monitor
+- Reason: SSSID document type returns HTTP 503 intermittently. KB previously
+  recorded 3 clean runs (2026-04-16) but the 2026-05-23 full regression returned
+  503. May be transient service unavailability or a docType-specific backend issue.
+- First seen: 2026-05-23 (first observed 503; prior runs were clean)
+- Recurrence: 1
+
 ---
 
 ## Fragile Fixtures
@@ -231,6 +285,7 @@ Flagged (was Stable, now warning).
 | DTI-001 | KYB | 1 | 3 | 2026-04-16 | - | New |
 | BIR-RAFI-001 | KYB | 3 | 3 | 2026-04-16 | - | New |
 | PS-FRAUD-001 | Fraud | 1 | 3 | 2026-04-16 | - | New |
+| PS-QR-001 | Fraud | 1 | 0 | - | - | Watched - runner bug (summaryOCR check) |
 | PHILID-FRAUD-TAMPERED-001 | Fraud | 1 | 0 | - | 2026-04-16 | Watched |
 | PHILID-FRAUD-DAMAGED-001 | Fraud | 1 | 0 | - | 2026-04-16 | Watched |
 | DL-FRAUD-FP-001 | Fraud | 3 | 3 | 2026-04-16 | - | New |

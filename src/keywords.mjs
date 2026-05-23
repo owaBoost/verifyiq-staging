@@ -661,9 +661,9 @@ export async function validateBls(fixture, results) {
   try {
     const client = createApiClient(true);
     const res = await client.get('/api/v1/applications/');
-    const passed = res.status === 200 || res.status === 404;
+    const passed = res.status === 200;
     results.push({ file: '/api/v1/applications/', status: res.status, passed, body: null,
-      summary: `HTTP ${res.status} -- endpoint ${passed ? 'exists' : 'unexpected status'}` });
+      summary: passed ? 'HTTP 200' : `HTTP ${res.status} (expected 200)` });
     console.log(`    ${passed ? 'PASS' : 'FAIL'} HTTP ${res.status}`);
   } catch (err) {
     results.push({ file: '/api/v1/applications/', status: 0, passed: false, body: null, summary: `Error: ${err.message}` });
@@ -675,9 +675,9 @@ export async function validateBls(fixture, results) {
   try {
     const client = createApiClient(true);
     const res = await client.get('/api/v1/applications/upload-urls');
-    const passed = res.status === 200 || res.status === 404 || res.status === 422;
+    const passed = res.status === 422;
     results.push({ file: '/api/v1/applications/upload-urls', status: res.status, passed, body: null,
-      summary: `HTTP ${res.status} -- endpoint ${passed ? 'exists' : 'unexpected status'}` });
+      summary: passed ? 'HTTP 422' : `HTTP ${res.status} (expected 422)` });
     console.log(`    ${passed ? 'PASS' : 'FAIL'} HTTP ${res.status}`);
   } catch (err) {
     results.push({ file: '/api/v1/applications/upload-urls', status: 0, passed: false, body: null, summary: `Error: ${err.message}` });
@@ -1967,6 +1967,26 @@ export async function validateApiEndpoints(fixture, results) {
       if (!found) errors.push(`seeded applicationId not found in items`);
     }
 
+    // Assert documentId matches seeded docId
+    if (ea.assertDocumentIdMatch && res.body) {
+      const bodyDocId = res.body.documentId;
+      if (!docId) {
+        errors.push('assertDocumentIdMatch: no seeded docId to compare against');
+      } else if (bodyDocId !== docId) {
+        errors.push(`documentId mismatch: ${bodyDocId} !== ${docId}`);
+      }
+    }
+
+    // Assert specific field values
+    if (Array.isArray(ea.assertFieldEquals)) {
+      for (const { field, value } of ea.assertFieldEquals) {
+        const actual = getNestedField(res.body, field);
+        if (actual !== value) {
+          errors.push(`${field}=${JSON.stringify(actual)} (expected ${JSON.stringify(value)})`);
+        }
+      }
+    }
+
     const passed = errors.length === 0;
     const summary = passed
       ? `HTTP ${res.status} -- ${label} OK`
@@ -2302,13 +2322,24 @@ export async function validateCacheCheck(fixture, results) {
       if (typeof res.data?.cached_count !== 'number') errors.push('missing cached_count');
       if (typeof res.data?.uncached_count !== 'number') errors.push('missing uncached_count');
       if (res.data?.items?.length !== tc.items.length) errors.push(`items length ${res.data?.items?.length} !== ${tc.items.length}`);
-      // Each item must have file_url and is_cached
       for (const item of (res.data?.items || [])) {
         if (typeof item.is_cached !== 'boolean') errors.push(`item missing is_cached: ${item.file_url}`);
+        // Assert expected cache state if specified
+        if (tc.expectCached !== undefined && item.is_cached !== tc.expectCached) {
+          errors.push(`${item.file_url}: is_cached=${item.is_cached} (expected ${tc.expectCached})`);
+        }
+      }
+      // Assert cached_count matches expectations
+      if (tc.expectCached === true && res.data?.cached_count !== tc.items.length) {
+        errors.push(`cached_count=${res.data?.cached_count} (expected ${tc.items.length})`);
       }
     } else {
       if (typeof res.data?.cached !== 'boolean') errors.push('missing cached field');
       if (typeof res.data?.documentHash !== 'string' && res.data?.documentHash !== null) errors.push('missing documentHash');
+      // Assert expected cache state if specified
+      if (tc.expectCached !== undefined && res.data?.cached !== tc.expectCached) {
+        errors.push(`cached=${res.data?.cached} (expected ${tc.expectCached})`);
+      }
     }
 
     const passed = errors.length === 0;
