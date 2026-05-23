@@ -113,28 +113,25 @@ proposals only. Staleness rule: warning pattern entries unconfirmed after 180 da
   and not echoed in callback payloads. Pattern guards publicUserId and submissionId
   only. The bearer-token echo fixture tests coercion resistance via publicUserId.
 
-### BANK_STATEMENT batch-upload permissive — accepts wrong document type without DOCUMENT_TYPE_MISMATCH
-- Fixtures: BATCH-WRONG-TYPE-001 (BankStatement case)
-- Warning text: 'electricity bill submitted as BankStatement via batch-upload:
-  no failureReason, ocrResult.documentData populated with misextracted fields'
+### Document type mismatch signal inconsistency
+- Fixtures: BATCH-WRONG-TYPE-001
 - Classification: Needs Investigation
-- Endpoint affected: POST /ai-gateway/batch-upload
-- Reason: When HP-SUP-03.JPG (a valid electricity bill) is submitted as
-  documentType BankStatement in a multi-doc batch via POST /ai-gateway/
-  batch-upload, the batch-upload pipeline does not trigger DOCUMENT_TYPE_MISMATCH.
-  The BankStatement extractor runs against the wrong document and emits partial
-  data: accountHolderName and billingAddress extracted from the electricity bill,
-  but all financial fields are null (no transactions, no debits/credits, no
-  account number, gs_bankname_bankstatement=null, gs_sources_bankstatement=
-  "99: Unidentified Sources", completenessScore=46). PAYSLIP and
-  ELECTRICITY_BILL via the same endpoint correctly return failureReason:
-  DOCUMENT_TYPE_MISMATCH for mismatched documents; BANK_STATEMENT does not.
-- First seen: 2026-05-23
+- First seen: 2026-05-22 (corrected analysis 2026-05-23)
 - Recurrence: 1
-- Distinguishing signal: failureReason absent + gs_sources_bankstatement
-  contains "99: Unidentified Sources" + completenessScore < 50
-- Notes: BATCH-WRONG-TYPE-001 BankStatement case will FAIL until the
-  batch-upload pipeline is fixed. Fixture intentionally tracks this open bug.
+- Description: The batch-upload pipeline detects DOCUMENT_TYPE_MISMATCH
+  for all three tested doc types, but signals the result inconsistently:
+    - PAYSLIP and ELECTRICITY_BILL: failureReason field (document-level)
+    - BANK_STATEMENT: fraudChecks.gs_fraudCheckStatusReason_bankstatement
+      (routed through fraud checks, flagged as gs_isFraudulent=1 even
+      though fraud check was skipped)
+  The detection logic works for all three. The contract is inconsistent
+  — consumers must check different fields per doc type to handle the
+  same logical event.
+- Distinguishing signal: BANK_STATEMENT mismatch is
+  gs_fraudCheckStatusReason_bankstatement === "document_type_mismatch" +
+  gs_isFraudulent_bankstatement === 1 + fraudCheckFindings contains
+  type "others_fraud" with "does not match the declared document type"
+- Notes: BATCH-WRONG-TYPE-001 asserts per-docType signals — both cases PASS.
 
 ---
 
@@ -268,7 +265,7 @@ Flagged (was Stable, now warning).
 | EXPORT-DOC-001 | Infrastructure | 1 | 0 | - | - | New |
 | CACHE-CHECK-001 | Infrastructure | 2 | 0 | - | - | New |
 | BATCH-QR-RANDOM-001 | Contract Negative | 3 | 0 | - | - | New |
-| BATCH-WRONG-TYPE-001 | Contract Negative | 2 | 0 | - | - | Watched - tracks open bug (BS batch-upload permissive) |
+| BATCH-WRONG-TYPE-001 | Contract Negative | 2 | 1 | 2026-05-23 | - | Watched |
 
 ---
 
@@ -443,6 +440,15 @@ gateway level. DOCUMENT_TYPE_MISMATCH only fires in multi-doc batches where
 the gateway preserves the submitted documentType per document.
 
 App callback is suppressed for wrong-type batches (same hybrid fallback).
+
+Minor contract anomalies in the same response (Wave 9b, 2026-05-23):
+- statementPeriodStart/End returned as Excel-style serial dates (e.g. 46049,
+  46079) not ISO format
+- Mixed casing in field names: gs_overallQualityScore_bankStatement (camelCase)
+  vs gs_isFraudulent_bankstatement (lowercase) in the same response
+- gs_fraudCheckStatus="skipped" but gs_isFraudulent=1 — flagged fraudulent
+  despite skipped fraud check (because of type mismatch routing through
+  fraud checks layer)
 
 ### Non-standard contract behavior on staging (2026-05-22)
 Discovered during Wave 7 negative endpoint probing:

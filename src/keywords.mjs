@@ -2207,13 +2207,6 @@ export async function validateBatchWrongType(fixture, results) {
     console.log(`    Received ${callbacks.length} callbacks`);
   } catch (err) { results.push({ file: null, status: batchStatus, passed: false, body: null, summary: `Polling: ${err.message}` }); return; }
 
-  // Build lookup from gateway docType to expected failureReason
-  const expectedByGatewayType = {};
-  for (const entry of fileEntries) {
-    const gw = GATEWAY_DOCTYPE_MAP[entry.documentType] || entry.documentType;
-    expectedByGatewayType[gw] = entry.expectedFailureReason || 'DOCUMENT_TYPE_MISMATCH';
-  }
-
   let docIndex = 0;
   for (const cb of callbacks) {
     const rawBody = cb.content ?? cb.body ?? JSON.stringify(cb);
@@ -2237,18 +2230,37 @@ export async function validateBatchWrongType(fixture, results) {
 
     if (decrypted.status !== 'COMPLETED') errors.push(`status="${decrypted.status}" (expected COMPLETED)`);
 
-    const expectedReason = expectedByGatewayType[cbDocType] || 'DOCUMENT_TYPE_MISMATCH';
-    if (decrypted.failureReason !== expectedReason) {
-      errors.push(`failureReason="${decrypted.failureReason || 'none'}" (expected ${expectedReason})`);
-    }
+    const fc = decrypted.ocrResult?.fraudChecks;
 
-    if (decrypted.documentData !== undefined && decrypted.documentData !== null) {
-      errors.push('documentData present (expected null/undefined)');
+    if (cbDocType === 'BANK_STATEMENT') {
+      // BANK_STATEMENT signals mismatch via fraudChecks, not failureReason
+      const prefix = 'bankstatement';
+      const statusReason = fc?.[`gs_fraudCheckStatusReason_${prefix}`];
+      if (statusReason !== 'document_type_mismatch') {
+        errors.push(`gs_fraudCheckStatusReason_${prefix}="${statusReason}" (expected "document_type_mismatch")`);
+      }
+      if (fc?.[`gs_isFraudulent_${prefix}`] !== 1) {
+        errors.push(`gs_isFraudulent_${prefix}=${fc?.[`gs_isFraudulent_${prefix}`]} (expected 1)`);
+      }
+      const findings = fc?.fraudCheckFindings || [];
+      const hasMismatchFinding = findings.some(f =>
+        f.type === 'others_fraud' && f.description?.includes('does not match the declared document type'));
+      if (!hasMismatchFinding) {
+        errors.push('missing fraudCheckFindings entry with type=others_fraud + "does not match the declared document type"');
+      }
+    } else {
+      // PAYSLIP and ELECTRICITY_BILL signal mismatch via failureReason
+      if (decrypted.failureReason !== 'DOCUMENT_TYPE_MISMATCH') {
+        errors.push(`failureReason="${decrypted.failureReason || 'none'}" (expected DOCUMENT_TYPE_MISMATCH)`);
+      }
+      if (decrypted.documentData !== undefined && decrypted.documentData !== null) {
+        errors.push('documentData present (expected null/undefined)');
+      }
     }
 
     const passed = errors.length === 0;
     const summary = passed
-      ? `HTTP 200 -- ${label} ${expectedReason} OK`
+      ? `HTTP 200 -- ${label} mismatch detected OK`
       : `${label}: ${errors.join(', ')}`;
     results.push({ file: label, status: batchStatus, passed, body: null, summary });
     console.log(`    ${passed ? 'PASS' : 'FAIL'} ${summary}`);
