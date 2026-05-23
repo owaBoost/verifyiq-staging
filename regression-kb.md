@@ -79,6 +79,28 @@ proposals only. Staleness rule: warning pattern entries unconfirmed after 180 da
 - Recurrence: 3
 - Notes: Pipeline logging bug drafted (bug-drafts/2026-04-16_PASS-FRAUD-FP-001-duplicate-log.md).
 
+### fraud-ai-generated testType — field shape reference
+- Fixtures: PS-FRAUD-AIGEN-001 (active), ELEC-FRAUD-AIGEN-001 (pending)
+- testType: fraud-ai-generated
+- Classification: Reference (documents field shape for triage — not a warning pattern)
+- fraudChecks object keys (from ocrResult.fraudChecks):
+  - gs_isFraudulent_{docPrefix}: 0 or 1
+  - gs_overallFraudScore_{docPrefix}: 0–100, lower = more fraudulent
+    (observed: 0.6 on confirmed-fraudulent payslip, 100 on clean elecbill)
+  - gs_fraudCheckStatus_{docPrefix}: "complete"
+  - gs_fraudCheckIncomplete_{docPrefix}: (present but not yet asserted on)
+  - fraudCheckFindings: array of { type: string, description: string }
+    No separate confidence field — confidence is embedded in description text.
+    Known types:
+      "ai-generatedContent" — description includes confidence %
+        e.g. "AI-generated content detected with 99.0% confidence"
+      "visualFraud" — description lists synthetic-render indicators
+        e.g. "Document shows 5/7 synthetic-render / AI-tool-save indicators: [...]"
+- docPrefix mapping: "payslip" for Payslip, "elecbill" for ElectricUtilityBillingStatement
+- Assertion logic: expects gs_isFraudulent=1 AND fraudCheckFindings.length > 0
+  with at least one ai-generatedContent entry
+- First seen: 2026-05-22 (wave 5)
+- Evidence: PS-FRAUD-AIGEN-001 probe 2026-05-24 (raw JSON dump of 3 doc callbacks)
 ### Hybrid status check — callback suppression fast-path
 - Fixtures: all batch fixtures (applies to pollWebhookCallbacks globally)
 - Warning text: 'Application callback suppressed — status COMPLETED verified via GET'
@@ -649,3 +671,4 @@ Confirmed dead-end (generic 404):
   fraud system catching AI-generated content on ElectricUtilityBillingStatement
   doc type. Test document ready (gs://verifyiq-internal-testing/QA/Gcash/Meralco.png).
   Wire into suite when fraud detection lands.
+  Bug draft: bug-drafts/2026-05-22_ELEC-FRAUD-AIGEN-001.md
