@@ -1,0 +1,173 @@
+{
+  "probe": "PS-FRAUD-CLEAN-001",
+  "timestamp": "2026-05-26T02:57:15.193Z",
+  "applicationId": "a97880e6-a4af-4882-b878-36c92d4ddcad",
+  "publicUserId": "probe-PS-FRAUD-CLEAN-001-1779764062263",
+  "submissionId": "2e29379d-f4cf-4c42-a349-db2d66baf933",
+  "timedOut": false,
+  "counts": {
+    "expected_doc": 6,
+    "expected_app": 1,
+    "received_doc": 6,
+    "received_app": 1,
+    "decrypt_errors": 0
+  },
+  "appCallback": {
+    "applicationId": "a97880e6-a4af-4882-b878-36c92d4ddcad",
+    "submissionId": "2e29379d-f4cf-4c42-a349-db2d66baf933",
+    "publicUserId": "probe-PS-FRAUD-CLEAN-001-1779764062263",
+    "status": "COMPLETED",
+    "ocrResult": {
+      "computedFields": {
+        "PAYSLIP": {
+          "available": true,
+          "data": {
+            "gs_180days_valid_payslip": 1,
+            "gs_90days_consec_payslip": 1,
+            "gs_90days_oneemployer_payslip": 1,
+            "gs_90days_gross_payslip": 60164.1,
+            "gs_90days_onetime_payslip": 4500,
+            "gs_90days_personalexpense_payslip": 38426.26,
+            "gs_inferredincome_payslip": 7245.95
+          }
+        },
+        "BANK_STATEMENT": {
+          "available": false
+        },
+        "ELECTRICITY_BILL": {
+          "available": false
+        }
+      },
+      "crossCheckFindings": [
+        {
+          "field": "name",
+          "valuePrimary": [
+            "GARCIA, MARIA S.",
+            "GARCIA, MARIA S.",
+            "GARCIA, MARIA S.",
+            "GARCIA, MARIA S.",
+            "GARCIA, MARIA S.",
+            "GARCIA, MARIA S."
+          ],
+          "valueSecondary": [],
+          "match": null,
+          "riskLevel": "medium",
+          "description": "Name found in primary documents; no secondary documents for cross-check"
+        },
+        {
+          "field": "address",
+          "valuePrimary": [],
+          "valueSecondary": [],
+          "match": null,
+          "riskLevel": "medium",
+          "description": "Address not found in any documents"
+        }
+      ]
+    }
+  },
+  "docCallbacks": [
+    {
+      "documentId": "0c35c9ae-3c7c-4e58-8dd4-ed16a6c2cd6a",
+      "filename": "Blade Asia_Maria Garcia Payslip_2026-02-15.pdf",
+      "status": "COMPLETED",
+      "fraudChecks": {
+        "gs_overallFraudScore_payslip": 92.43,
+        "gs_isFraudulent_payslip": 0,
+        "gs_fraudCheckIncomplete_payslip": false,
+        "fraudCheckFindings": [
+          {
+            "type": "metadataFraud",
+            "description": "modification_date: Missing modification date; title: Missing title; subject: Missing document subject - unusual for formal documents; keywords: Missing keywords"
+          }
+        ],
+        "gs_fraudCheckStatus_payslip": "complete"
+      }
+    },
+    {
+      "documentId": "589a960c-f461-4c5a-acb2-e2497b3b9703",
+      "filename": "Blade Asia_Maria Garcia Payslip_2026-02-28.pdf",
+      "status": "COMPLETED",
+      "fraudChecks": {
+        "gs_overallFraudScore_payslip": 92.43,
+        "gs_isFraudulent_payslip": 0,
+        "gs_fraudCheckIncomplete_payslip": false,
+        "fraudCheckFindings": [
+          {
+            "type": "metadataFraud",
+            "description": "modification_date: Missing modification date; title: Missing title; subject: Missing document subject - unusual for formal documents; keywords: Missing keywords"
+          }
+        ],
+        "gs_fraudCheckStatus_payslip": "complete"
+      }
+    },
+    {
+      "documentId": "75968629-d4d9-4680-b72f-1048d488c205",
+      "filename": "Blade Asia_Maria Garcia Payslip_2026-03-15.pdf",
+      "status": "COMPLETED",
+      "fraudChecks": {
+        "gs_overallFraudScore_payslip": 92.43,
+        "gs_isFraudulent_payslip": 0,
+        "gs_fraudCheckIncomplete_payslip": false,
+        "fraudCheckFindings": [
+          {
+            "type": "metadataFraud",
+            "description": "modification_date: Missing modification date; title: Missing title; subject: Missing document subject - unusual for formal documents; keywords: Missing keywords"
+          }
+        ],
+        "gs_fraudCheckStatus_payslip": "complete"
+      }
+    },
+    {
+      "documentId": "395cef40-ed1f-4075-a4fe-8ab16677199b",
+      "filename": "Blade Asia_Maria Garcia Payslip_2026-01-15.pdf",
+      "status": "COMPLETED",
+      "fraudChecks": {
+        "gs_overallFraudScore_payslip": 92.43,
+        "gs_isFraudulent_payslip": 0,
+        "gs_fraudCheckIncomplete_payslip": false,
+        "fraudCheckFindings": [
+          {
+            "type": "metadataFraud",
+            "description": "modification_date: Missing modification date; title: Missing title; subject: Missing document subject - unusual for formal documents; keywords: Missing keywords"
+          }
+        ],
+        "gs_fraudCheckStatus_payslip": "complete"
+      }
+    },
+    {
+      "documentId": "8c1a1cfe-4d50-447e-ae85-f5584960fca0",
+      "filename": "Blade Asia_Maria Garcia Payslip_2026-03-31.pdf",
+      "status": "COMPLETED",
+      "fraudChecks": {
+        "gs_overallFraudScore_payslip": 92.43,
+        "gs_isFraudulent_payslip": 0,
+        "gs_fraudCheckIncomplete_payslip": false,
+        "fraudCheckFindings": [
+          {
+            "type": "metadataFraud",
+            "description": "modification_date: Missing modification date; title: Missing title; subject: Missing document subject - unusual for formal documents; keywords: Missing keywords"
+          }
+        ],
+        "gs_fraudCheckStatus_payslip": "complete"
+      }
+    },
+    {
+      "documentId": "94cc5618-77a2-4df5-a004-70dfa7149d63",
+      "filename": "Blade Asia_Maria Garcia Payslip_2026-01-31.pdf",
+      "status": "COMPLETED",
+      "fraudChecks": {
+        "gs_overallFraudScore_payslip": 92.43,
+        "gs_isFraudulent_payslip": 0,
+        "gs_fraudCheckIncomplete_payslip": false,
+        "fraudCheckFindings": [
+          {
+            "type": "metadataFraud",
+            "description": "modification_date: Missing modification date; title: Missing title; subject: Missing document subject - unusual for formal documents; keywords: Missing keywords"
+          }
+        ],
+        "gs_fraudCheckStatus_payslip": "complete"
+      }
+    }
+  ],
+  "decryptErrors": []
+}

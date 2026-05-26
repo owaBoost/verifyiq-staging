@@ -316,6 +316,34 @@
       "section": "Employment"
     },
     {
+      "id": "PS-APP-COMPUTED-001",
+      "documentType": "Payslip",
+      "testType": "app-computed",
+      "smoke": false,
+      "fraudFieldPrefix": "payslip",
+      "description": "Blade Asia / Maria Garcia semi-monthly batch (6 docs, Jan–Mar 2026) — verify 7 computed Payslip income fields land at correct values in the app-level callback",
+      "files": [
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip/Blade Asia_Maria Garcia Payslip_2026-01-15.pdf",
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip/Blade Asia_Maria Garcia Payslip_2026-01-31.pdf",
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip/Blade Asia_Maria Garcia Payslip_2026-02-15.pdf",
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip/Blade Asia_Maria Garcia Payslip_2026-02-28.pdf",
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip/Blade Asia_Maria Garcia Payslip_2026-03-15.pdf",
+        "gs://verifyiq-internal-testing/QA/Gcash/Payslip/Blade Asia_Maria Garcia Payslip_2026-03-31.pdf"
+      ],
+      "expectedComputedFields": {
+        "PAYSLIP": {
+          "gs_180days_valid_payslip": 1,
+          "gs_90days_consec_payslip": 1,
+          "gs_90days_oneemployer_payslip": 1,
+          "gs_90days_gross_payslip": 60164.1,
+          "gs_90days_onetime_payslip": 4500,
+          "gs_90days_personalexpense_payslip": 38426.26,
+          "gs_inferredincome_payslip": 7245.95
+        }
+      },
+      "section": "Employment"
+    },
+    {
       "id": "PS-GCASH-MO-001",
       "documentType": "Payslip",
       "testType": "default",
