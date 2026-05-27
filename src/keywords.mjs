@@ -1543,6 +1543,165 @@ export async function validateBankDeepBatch(fixture, results) {
   }
 }
 
+// -- APP-COMPUTED: batch upload + assert app-level computedFields --------------
+//
+// Verifies that computed Payslip fields land at correct values in the
+// application-level callback for a batch submitted through the AI gateway.
+// Primary purpose: catch regressions in the 90-day income rollup and
+// inferred-income computation where presence-only checks would pass silently.
+//
+// Suppression-fallback bypass: applicationId is NOT passed to
+// pollWebhookCallbacks — the hybrid fallback (PR #6) cannot mask a missing
+// app callback. Zero app callbacks received = hard FAIL.
+//
+// Fixture fields required:
+//   fraudFieldPrefix               {string} — e.g. "payslip"
+//   expectedComputedFields.PAYSLIP {object} — field name -> expected value
+//     Tolerance: exact for 0|1 values; ±0.01 for all other numbers.
+//
+export async function runAppComputed(fixture, results) {
+  if (!state.webhookTokenId) {
+    results.push({ file: null, status: 0, passed: false, body: null,
+      summary: 'SKIPPED -- no webhook token' });
+    return;
+  }
+
+  const prefix = fixture.fraudFieldPrefix;
+  if (!prefix) {
+    results.push({ file: null, status: 0, passed: false, body: null,
+      summary: 'FAIL — fixture missing fraudFieldPrefix' });
+    return;
+  }
+
+  const expectedData = fixture.expectedComputedFields?.PAYSLIP;
+  if (!expectedData || typeof expectedData !== 'object' || Object.keys(expectedData).length === 0) {
+    results.push({ file: null, status: 0, passed: false, body: null,
+      summary: 'FAIL — fixture missing expectedComputedFields.PAYSLIP' });
+    return;
+  }
+
+  const gatewayDocType = GATEWAY_DOCTYPE_MAP[fixture.documentType] || fixture.documentType;
+  const documents = fixture.files.map(file => ({
+    documentId: randomUUID(), fileId: randomUUID(), documentClassification: 'PRIMARY',
+    documentType: gatewayDocType, filename: file.split('/').pop(), preSignedUrl: file,
+  }));
+
+  const webhookIapHeader = { Authorization: `Bearer ${getWebhookIapToken()}` };
+  const payload = {
+    payload: { publicUserId: `regression-${fixture.id}-${Date.now()}`, submissionId: randomUUID(), documents },
+    callbacks: {
+      documentResult:    { url: `${WEBHOOK_SERVER_URL}/${state.webhookTokenId}`, method: 'POST', headers: webhookIapHeader },
+      applicationResult: { url: `${WEBHOOK_SERVER_URL}/${state.webhookTokenId}`, method: 'POST', headers: webhookIapHeader },
+    },
+  };
+
+  let baselineCount;
+  try { baselineCount = await getWebhookBaseline(); console.log(`    Webhook baseline: ${baselineCount}`); }
+  catch (err) { results.push({ file: null, status: 0, passed: false, body: null, summary: `Webhook baseline failed: ${err.message}` }); return; }
+
+  const client = createApiClient(true);
+  let status, body;
+  try { const res = await client.post('/ai-gateway/batch-upload', payload); status = res.status; body = res.data; }
+  catch (err) { results.push({ file: null, status: 0, passed: false, body: null, summary: `POST error: ${err.message}` }); return; }
+
+  console.log(`    POST response: HTTP ${status}`);
+  if (status !== 200 || !body?.applicationId) {
+    results.push({ file: null, status, passed: false, body, summary: `HTTP ${status} -- ${JSON.stringify(body).slice(0, 200)}` });
+    return;
+  }
+  console.log(`    HTTP 200, applicationId=${body.applicationId}`);
+
+  const expectedCallbacks = documents.length + 1;
+  let rawCallbacks;
+  try {
+    console.log(`    Waiting for ${expectedCallbacks} callbacks (${documents.length} doc + 1 app, suppression fallback disabled)...`);
+    // applicationId intentionally omitted — hybrid suppression fallback must not fire
+    rawCallbacks = await pollWebhookCallbacks(baselineCount, expectedCallbacks, undefined);
+    console.log(`    Received ${rawCallbacks.length} callbacks`);
+  } catch (err) { results.push({ file: null, status, passed: false, body, summary: `Polling: ${err.message}` }); return; }
+
+  // Decrypt and classify by presence of decrypted.documentId
+  const docCallbacks = [];
+  const appCallbacks = [];
+  const allErrors = [];
+
+  for (const cb of rawCallbacks) {
+    const rawBody = cb.content ?? cb.body ?? JSON.stringify(cb);
+    let decrypted;
+    try { decrypted = await decryptCallback(rawBody); }
+    catch (err) {
+      if (err.prSkip) { console.log(`    ${err.message}`); continue; }
+      allErrors.push(`Decrypt failed: ${err.message}`); continue;
+    }
+    if (decrypted.documentId) docCallbacks.push(decrypted);
+    else appCallbacks.push(decrypted);
+  }
+
+  // -- Count assertions -------------------------------------------------------
+  if (docCallbacks.length !== documents.length) {
+    allErrors.push(`doc callback count: expected ${documents.length}, got ${docCallbacks.length}`);
+  }
+  if (appCallbacks.length !== 1) {
+    const note = appCallbacks.length === 0 ? ' — suppression fallback may have fired on clean docs' : '';
+    allErrors.push(`app callback count: expected 1, got ${appCallbacks.length}${note}`);
+  }
+
+  // -- Doc-level fraud guard: gs_isFraudulent_{prefix} must be 0 on every doc -
+  for (const doc of docCallbacks) {
+    const fname = documents.find(d => d.documentId === doc.documentId)?.filename ?? doc.documentId.slice(0, 8);
+    const isFraudulent = doc.ocrResult?.fraudChecks?.[`gs_isFraudulent_${prefix}`];
+    if (isFraudulent !== 0) {
+      console.log(`    FAIL ${fname}: gs_isFraudulent_${prefix}=${JSON.stringify(isFraudulent)} (expected 0)`);
+      allErrors.push(`${fname}: gs_isFraudulent_${prefix}=${JSON.stringify(isFraudulent)} (expected 0 — doc flagged as fraudulent)`);
+    } else {
+      console.log(`    PASS ${fname}: gs_isFraudulent_${prefix}=0`);
+    }
+  }
+
+  // -- App callback computed field assertions ----------------------------------
+  if (appCallbacks.length >= 1) {
+    const app = appCallbacks[0];
+    const payslipBlock = app.ocrResult?.computedFields?.PAYSLIP;
+
+    if (payslipBlock?.available !== true) {
+      allErrors.push(`app callback: PAYSLIP.available=${JSON.stringify(payslipBlock?.available)} (expected true)`);
+    }
+
+    const data = payslipBlock?.data ?? {};
+    console.log('    computedFields (PAYSLIP):');
+    for (const [key, expectedVal] of Object.entries(expectedData)) {
+      const actual = data[key];
+      if (actual === undefined || actual === null) {
+        console.log(`    FAIL ${key} — missing`);
+        allErrors.push(`app callback: ${key} missing (expected ${expectedVal})`);
+        continue;
+      }
+      // Exact match for boolean 0|1 fields; ±0.01 tolerance for monetary/float
+      if (expectedVal === 0 || expectedVal === 1) {
+        if (actual === expectedVal) { console.log(`    PASS ${key} === ${expectedVal}`); }
+        else { console.log(`    FAIL ${key}: expected ${expectedVal}, got ${actual}`); allErrors.push(`app callback: ${key}=${JSON.stringify(actual)} (expected ${expectedVal})`); }
+      } else {
+        if (typeof actual === 'number' && Math.abs(actual - expectedVal) <= 0.01) {
+          console.log(`    PASS ${key} = ${actual} (expected ${expectedVal} ±0.01)`);
+        } else {
+          console.log(`    FAIL ${key}: expected ${expectedVal} ±0.01, got ${JSON.stringify(actual)}`);
+          allErrors.push(`app callback: ${key}=${JSON.stringify(actual)} (expected ${expectedVal} ±0.01)`);
+        }
+      }
+    }
+  }
+
+  // -- Result -----------------------------------------------------------------
+  const fieldCount = Object.keys(expectedData).length;
+  if (allErrors.length) {
+    results.push({ file: null, status, passed: false, body,
+      summary: `app-computed failed: ${allErrors.join('; ')}` });
+  } else {
+    results.push({ file: null, status, passed: true, body,
+      summary: `HTTP 200 ACCEPTED -- ${docCallbacks.length} doc callbacks (fraud guard OK), 1 app callback, ${fieldCount} computed fields validated` });
+  }
+}
+
 // =============================================================================
 // Dispatch table: testType -> keyword function
 // =============================================================================
@@ -2374,6 +2533,7 @@ export const TEST_TYPE_RUNNERS = {
   'contract-negative': runContractNegative,
   'callback-echo': runCallbackEcho,
   'cross-validate': runCrossValidateDirect,
+  'app-computed': runAppComputed,
   'api-endpoints': validateApiEndpoints,
   'api-security': validateApiSecurity,
   'cache-check': validateCacheCheck,

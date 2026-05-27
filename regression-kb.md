@@ -259,6 +259,7 @@ Flagged (was Stable, now warning).
 | PS-TC003 | Employment | 6 | 0 | - | - | New |
 | PS-GCASH-SM-001 | Employment | 7 | 0 | - | - | New |
 | PS-GCASH-MO-001 | Employment | 6 | 0 | - | - | New |
+| PS-APP-COMPUTED-001 | Employment | 13 | 0 | - | - | New |
 | PHILID-001 | Identity / KYC | 2 | 4 | 2026-05-19 | - | New |
 | DL-001 | Identity / KYC | 1 | 3 | 2026-04-16 | - | New |
 | PASS-001 | Identity / KYC | 1 | 3 | 2026-04-16 | - | New |
@@ -378,6 +379,58 @@ Flagged (was Stable, now warning).
   No overtime on any payslip — gs_90days_onetime_payslip must always be 0
   SSS MPF (₱500) captured as otherDeductionAmount — correctly treated as govt contribution
   PhilHealth and HDMF are ₱0 — handled at employer level
+
+### PS-APP-COMPUTED-001
+- Description: App-level computed field assertions — Semi-Monthly, Blade Asia Inc., 6 payslips
+- Category: Employment
+- testType: app-computed (runAppComputed in src/keywords.mjs)
+- Employee: GARCIA, MARIA S.
+- Employer: BLADE ASIA, INC.
+- Pay Frequency: Semi-monthly
+- Coverage: 2026-01-01 to 2026-03-31
+- Files: same 6 GCS paths as PS-GCASH-SM-001 (Blade Asia / Maria Garcia payslips)
+- First seen: 2026-05-24
+- Evidence: probe-results/2026-05-24_PS-APP-COMPUTED-001.json (feat/app-computed-fixture branch)
+- Staleness: Payslip dates go stale ~Sep 2026
+- Assertions (13): 6 doc-level (gs_isFraudulent_payslip=0 per file) + 7 app-level computed fields
+  gs_180days_valid_payslip          = 1
+  gs_90days_consec_payslip          = 1
+  gs_90days_oneemployer_payslip     = 1
+  gs_90days_gross_payslip           = 60164.10   (±0.01)
+  gs_90days_onetime_payslip         = 4500.00    (±0.01)
+  gs_90days_personalexpense_payslip = 38426.26   (±0.01)
+  gs_inferredincome_payslip         = 7245.95    (±0.01)
+
+- Purpose: Verifies 7 computed Payslip fields land at exact values (±0.01 monetary
+  tolerance) in the application-level callback for a 6-doc semi-monthly clean
+  payslip batch. Also asserts the app callback fires at all — suppression-fallback
+  is bypassed by omitting applicationId from pollWebhookCallbacks and adding an
+  explicit appCallbacks.length === 1 assertion.
+
+- Differentiation from PS-GCASH-SM-001: PS-GCASH-SM-001 uses testType=default →
+  runGcashComputed, which is submission-only and asserts no computed field values.
+  The expectedComputedFields metadata in its registry entry is inert — no code reads
+  it. PS-APP-COMPUTED-001 is the fixture that actually verifies what PS-GCASH-SM-001's
+  metadata claimed to.
+
+- Differentiation from PS-TC001: PS-TC001 (validatePayslipRules) hits the same 7
+  fields but wraps assertions through isStubSkipped, which gracefully skips fields
+  that return 0 or null (stub-shaped). PS-APP-COMPUTED-001 does NOT use
+  isStubSkipped — stub-shaped values (0 or null where an exact value was expected)
+  are hard failures.
+
+- TRIAGE HINT — stub regression: if PS-APP-COMPUTED-001 fails with 0 or null on
+  one or more of the 7 computed fields, classify as Needs Investigation → likely
+  backend stub regression on that specific field. Cross-check: if PS-TC001
+  simultaneously SKIPS the same field (isStubSkipped returned true), that confirms
+  the value is stub-shaped. If the failing value is neither stub-shaped nor the
+  expected exact value, that is drift in the computed calculation — different root
+  cause, file a separate bug.
+
+- TRIAGE HINT — suppression mis-fire: if PS-APP-COMPUTED-001 fails specifically on
+  appCallbacks.length === 1 (got 0), the suppression-fallback is firing on a clean
+  batch. Classify as Needs Investigation, escalate against PR #6 /
+  pollWebhookCallbacks behavior, not the fixture.
 
 ### infra-callback-echo-publicuserid-numeric
 - Description: Callback echo — numeric publicUserId round-trip (GCash GGIVES repro)
