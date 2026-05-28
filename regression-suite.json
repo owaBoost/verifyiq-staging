@@ -316,7 +316,7 @@
       "id": "PS-GCASH-SM-001",
       "documentType": "Payslip",
       "testType": "default",
-      "description": "GCash semi-monthly payslip — Blade Asia, Maria Garcia, 6 payslips covering Jan 1 – Mar 31, 2026",
+      "description": "GCash semi-monthly payslip smoke test — batch submission (6 payslips) + doc/app callback arrival (PS-APP-COMPUTED-001 owns computed-field assertions)",
       "files": [
         "gs://verifyiq-internal-testing/QA/Gcash/Payslip/Blade Asia_Maria Garcia Payslip_2026-01-15.pdf",
         "gs://verifyiq-internal-testing/QA/Gcash/Payslip/Blade Asia_Maria Garcia Payslip_2026-01-31.pdf",
@@ -325,17 +325,6 @@
         "gs://verifyiq-internal-testing/QA/Gcash/Payslip/Blade Asia_Maria Garcia Payslip_2026-03-15.pdf",
         "gs://verifyiq-internal-testing/QA/Gcash/Payslip/Blade Asia_Maria Garcia Payslip_2026-03-31.pdf"
       ],
-      "expectedComputedFields": {
-        "PAYSLIP": {
-          "gs_180days_valid_payslip": 1,
-          "gs_90days_consec_payslip": 1,
-          "gs_90days_oneemployer_payslip": 1,
-          "gs_90days_gross_payslip": 60164.1,
-          "gs_90days_onetime_payslip": 4500,
-          "gs_90days_personalexpense_payslip": 38426.26,
-          "gs_inferredincome_payslip": 7245.95
-        }
-      },
       "clickupTaskUrl": "https://app.clickup.com/t/86b9e4h08",
       "section": "Employment"
     },
