@@ -367,7 +367,7 @@ Flagged (was Stable, now warning).
 ## Fixture Details
 
 ### PS-GCASH-SM-001
-- Description: GCash Payslip — Semi-Monthly, Blade Asia Inc., 6 payslips
+- Description: GCash semi-monthly payslip smoke test — batch submission (6 payslips) + doc/app callback arrival. PS-APP-COMPUTED-001 owns computed-field assertions.
 - Category: Employment
 - Employee: GARCIA, MARIA S.
 - Employer: BLADE ASIA, INC.
@@ -383,14 +383,7 @@ Flagged (was Stable, now warning).
   gs://verifyiq-internal-testing/QA/Gcash/Payslip/Blade Asia_Maria Garcia Payslip_2026-02-28.pdf
   gs://verifyiq-internal-testing/QA/Gcash/Payslip/Blade Asia_Maria Garcia Payslip_2026-03-15.pdf
   gs://verifyiq-internal-testing/QA/Gcash/Payslip/Blade Asia_Maria Garcia Payslip_2026-03-31.pdf
-- Assertions (7):
-  gs_180days_valid_payslip          = 1
-  gs_90days_consec_payslip          = 1
-  gs_90days_oneemployer_payslip     = 1
-  gs_90days_gross_payslip           = 60164.10
-  gs_90days_onetime_payslip         = 4500.00
-  gs_90days_personalexpense_payslip = 38426.26
-  gs_inferredincome_payslip         = 7245.95
+- Assertions (7): 6 doc callbacks (decrypt + validateDocumentCallback, one per payslip) + 1 app callback (arrives, non-falsy, validateApplicationCallback via batchUpload). expectedComputedFields was inert metadata — no code read it. Stripped 2026-05-28. Computed-field VALUES are asserted by PS-APP-COMPUTED-001.
 
 ### PS-GCASH-MO-001
 - Description: GCash Payslip — Monthly, Alorica Teleservices Inc., 3 payslips
