@@ -151,6 +151,9 @@ export async function batchUpload(fixture) {
     }
   }
 
+  if (!callbackDetails.application) {
+    allErrors.push('Application callback missing — suppression fallback fired on non-fraud fixture');
+  }
   if (allErrors.length) return { status, passed: false, body, callbackDetails, summary: `Callback: ${allErrors.length} error(s): ${allErrors.join('; ')}` };
   return { status, passed: true, body, callbackDetails, summary: `HTTP 200 ACCEPTED -- ${callbacks.length} callbacks validated` };
 }
@@ -1012,14 +1015,37 @@ export async function runDedup(fixture, results) {
   }
   console.log(`    HTTP 200, applicationId=${res.data.applicationId}`);
 
-  // Poll for 4 callbacks (3 doc + 1 app)
+  // Poll for 4 callbacks (3 doc + 1 app). applicationId intentionally omitted —
+  // hybrid suppression fallback must not fire on a non-fraud fixture.
   try {
     console.log('    Waiting for 4 callbacks (3 doc + 1 app)...');
-    const callbacks = await pollWebhookCallbacks(baselineCount, 4, res.data.applicationId);
+    const callbacks = await pollWebhookCallbacks(baselineCount, 4, undefined);
     console.log(`    Received ${callbacks.length} callbacks`);
-    results.push({ file: null, status: 200, passed: true, body: null,
-      summary: `HTTP 200 ACCEPTED -- ${callbacks.length} callbacks, dedup OK` });
-    console.log(`    PASS ${results.at(-1).summary}`);
+    const allErrors = [];
+    let appCallbackFound = false;
+    let docCount = 0;
+    for (const cb of callbacks) {
+      const rawBody = cb.content ?? cb.body ?? JSON.stringify(cb);
+      let decrypted;
+      try { decrypted = await decryptCallback(rawBody); }
+      catch (err) {
+        if (err.prSkip) { console.log(`    ${err.message}`); continue; }
+        allErrors.push(`Decrypt failed: ${err.message}`); continue;
+      }
+      if (decrypted.documentId) { docCount++; }
+      else { appCallbackFound = true; }
+    }
+    if (!appCallbackFound) allErrors.push('Application callback missing — suppression fallback fired');
+    if (docCount !== 3) allErrors.push(`Expected 3 doc callbacks, got ${docCount}`);
+    if (allErrors.length) {
+      results.push({ file: null, status: 200, passed: false, body: null,
+        summary: `Dedup: ${allErrors.length} error(s): ${allErrors.join('; ')}` });
+      console.log(`    FAIL ${results.at(-1).summary}`);
+    } else {
+      results.push({ file: null, status: 200, passed: true, body: null,
+        summary: `HTTP 200 ACCEPTED -- ${callbacks.length} callbacks, dedup OK (${docCount} doc + app)` });
+      console.log(`    PASS ${results.at(-1).summary}`);
+    }
   } catch (err) {
     results.push({ file: null, status: 200, passed: false, body: null, summary: `Polling: ${err.message}` });
   }
