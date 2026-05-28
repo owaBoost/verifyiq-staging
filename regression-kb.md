@@ -79,6 +79,28 @@ proposals only. Staleness rule: warning pattern entries unconfirmed after 180 da
 - Recurrence: 3
 - Notes: Pipeline logging bug drafted (bug-drafts/2026-04-16_PASS-FRAUD-FP-001-duplicate-log.md).
 
+### fraud-ai-generated testType — field shape reference
+- Fixtures: PS-FRAUD-AIGEN-001 (active), ELEC-FRAUD-AIGEN-001 (pending)
+- testType: fraud-ai-generated
+- Classification: Reference (documents field shape for triage — not a warning pattern)
+- fraudChecks object keys (from ocrResult.fraudChecks):
+  - gs_isFraudulent_{docPrefix}: 0 or 1
+  - gs_overallFraudScore_{docPrefix}: 0–100, lower = more fraudulent
+    (observed: 0.6 on confirmed-fraudulent payslip, 100 on clean elecbill)
+  - gs_fraudCheckStatus_{docPrefix}: "complete"
+  - gs_fraudCheckIncomplete_{docPrefix}: (present but not yet asserted on)
+  - fraudCheckFindings: array of { type: string, description: string }
+    No separate confidence field — confidence is embedded in description text.
+    Known types:
+      "ai-generatedContent" — description includes confidence %
+        e.g. "AI-generated content detected with 99.0% confidence"
+      "visualFraud" — description lists synthetic-render indicators
+        e.g. "Document shows 5/7 synthetic-render / AI-tool-save indicators: [...]"
+- docPrefix mapping: "payslip" for Payslip, "elecbill" for ElectricUtilityBillingStatement
+- Assertion logic: expects gs_isFraudulent=1 AND fraudCheckFindings.length > 0
+  with at least one ai-generatedContent entry
+- First seen: 2026-05-22 (wave 5)
+- Evidence: PS-FRAUD-AIGEN-001 probe 2026-05-24 (raw JSON dump of 3 doc callbacks)
 ### Hybrid status check — callback suppression fast-path
 - Fixtures: all batch fixtures (applies to pollWebhookCallbacks globally)
 - Warning text: 'Application callback suppressed — status COMPLETED verified via GET'
@@ -94,6 +116,22 @@ proposals only. Staleness rule: warning pattern entries unconfirmed after 180 da
 - Notes: The 300s timeout fallback is preserved as a safety net for true
   failures. The log message text changed from the timeout-fallback version
   to include elapsed milliseconds.
+
+### AI-generated content not detected on ElectricUtilityBillingStatement
+- Fixtures: ELEC-FRAUD-AIGEN-001 (planned, blocked on this bug)
+- Warning text: 'gs_isFraudulent_elecbill === 0 with empty fraudCheckFindings on AI-generated electricity bill'
+- Classification: Needs Investigation
+- Reason: Fraud system catches AI-generated payslips (99% confidence,
+  ai-generatedContent + visualFraud findings) but does not detect synthetic
+  content on electricity utility billing statements. Same detection pipeline,
+  same bucket, same test plan — gap is specific to doc type.
+- First seen: 2026-05-22 (Meralco.png probe during wave 5 implementation)
+- Test document: gs://verifyiq-internal-testing/QA/Gcash/Meralco.png
+- Expected: gs_isFraudulent_elecbill === 1, fraudCheckFindings contains ai-generatedContent
+- Actual: gs_isFraudulent_elecbill === 0, gs_overallFraudScore_elecbill === 100, fraudCheckFindings = []
+- Recurrence: 1
+- Notes: Bug draft to be filed. Comparison reference — PS-FRAUD-AIGEN-001 payslip
+  probe correctly returns isFraudulent=1 + ai-generatedContent finding 99%.
 
 ### Callback identity field mismatch
 - Fixtures: infra-callback-echo-publicuserid-numeric, infra-callback-echo-submissionid,
@@ -294,6 +332,7 @@ Flagged (was Stable, now warning).
 | PASS-FRAUD-FP-001 | Fraud | 2 | 0 | - | 2026-04-16 | Watched |
 | ELEC-FRAUD-001 | Fraud | 1 | 3 | 2026-04-16 | - | New |
 | BIR-FRAUD-001 | Fraud | 1 | 3 | 2026-04-16 | - | New |
+| PS-FRAUD-AIGEN-001 | Fraud | 3 | 0 | - | - | New |
 | HEALTH-001 | Infrastructure | 7 | 4 | 2026-05-19 | - | New |
 | SEC-001 | Infrastructure | 3 | 4 | 2026-05-19 | - | New |
 | CACHE-001 | Infrastructure | 2 | 4 | 2026-05-19 | - | New |
@@ -628,3 +667,8 @@ Confirmed dead-end (generic 404):
 
 - TC-ELEC-03 / TC-ELEC-04: fixtures confirmed in GCS, not yet in suite. Blocked on elecbill-rules runner (PRIMARY bank statement + SUPPORTING electricity bill assembly, extract computedFields.ELECTRICITY_BILL.data.gs_180days_valid_elecbill). Wire in when runner is ready.
 - PS-FRAUD-ASYNC-001: async fraud-status endpoint partially deployed on staging as of 2026-05-23. GET /v1/documents/fraud-status/{id} exists (returns 404 "Fraud job not found or expired." for bad ID, 405 for POST). No submit endpoint found (POST /v1/documents/fraud-check → generic 404). Blocked — no way to trigger async fraud job.
+- ELEC-FRAUD-AIGEN-001: AI-generated electricity bill fixture. Blocked on
+  fraud system catching AI-generated content on ElectricUtilityBillingStatement
+  doc type. Test document ready (gs://verifyiq-internal-testing/QA/Gcash/Meralco.png).
+  Wire into suite when fraud detection lands.
+  Bug draft: bug-drafts/2026-05-22_ELEC-FRAUD-AIGEN-001.md
