@@ -5,7 +5,9 @@
   "description": "VerifyIQ staging regression runner",
   "scripts": {
     "regression": "node run_regression.mjs",
-    "dry-run": "node run_regression.mjs --dry-run"
+    "dry-run": "node run_regression.mjs --dry-run",
+    "test:guards": "node --experimental-test-module-mocks --test test/suppression-guard.test.mjs",
+    "test": "node --experimental-test-module-mocks --test test/"
   },
   "dependencies": {
     "axios": "^1.7.0",
