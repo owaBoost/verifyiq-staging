@@ -1775,7 +1775,7 @@ export async function validateFraudAiGenerated(fixture, results) {
   let callbacks;
   try {
     console.log(`    Waiting for ${expectedCallbacks} callbacks (${documents.length} doc + 1 app, suppression expected)...`);
-    callbacks = await pollWebhookCallbacks(baselineCount, expectedCallbacks, body.applicationId);
+    callbacks = await pollWebhookCallbacks(baselineCount, expectedCallbacks, body.applicationId, { allowSuppression: true });
     console.log(`    Received ${callbacks.length} callbacks`);
   } catch (err) { results.push({ file: null, status, passed: false, body, summary: `Polling: ${err.message}` }); return; }
 
