@@ -265,7 +265,7 @@ export async function getWebhookBaseline() {
   return res.data?.data?.length ?? 0;
 }
 
-export async function pollWebhookCallbacks(baselineCount, expectedCount, applicationId, timeoutMs = 300_000) {
+export async function pollWebhookCallbacks(baselineCount, expectedCount, applicationId, { allowSuppression = false, timeoutMs = 300_000 } = {}) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     await sleep(3_000);
@@ -286,7 +286,7 @@ export async function pollWebhookCallbacks(baselineCount, expectedCount, applica
     // having all doc callbacks already in hand, that's sufficient — the doc
     // callbacks prove processing is done, the GET proves the app is reachable.
     const elapsed = Date.now() - start;
-    if (elapsed >= 30_000 && newRequests.length === expectedCount - 1 && applicationId) {
+    if (allowSuppression && elapsed >= 30_000 && newRequests.length === expectedCount - 1 && applicationId) {
       try {
         const appRes = await createApiClient(false).get(`/api/v1/applications/${applicationId}`);
         if (appRes.status === 200 && appRes.data?.applicationId) {
@@ -308,7 +308,7 @@ export async function pollWebhookCallbacks(baselineCount, expectedCount, applica
   const finalAll = finalRes.data?.data ?? [];
   const finalNew = finalAll.slice(0, finalAll.length - baselineCount);
 
-  if (finalNew.length === expectedCount - 1 && applicationId) {
+  if (allowSuppression && finalNew.length === expectedCount - 1 && applicationId) {
     try {
       const appRes = await createApiClient(false).get(`/api/v1/applications/${applicationId}`);
       if (appRes.status === 200) {

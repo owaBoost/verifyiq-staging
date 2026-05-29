@@ -39,7 +39,7 @@ mock.module('../src/utils.mjs', {
     getWebhookIapToken: () => 'mock-iap-token',
     getWebhookBaseline: async () => 0,
     // Withhold the app callback: return (expectedCount - 1) doc callbacks only.
-    pollWebhookCallbacks: async (_baseline, expectedCount, _appId) =>
+    pollWebhookCallbacks: async (_baseline, expectedCount, _appId, _opts) =>
       Array(expectedCount - 1).fill(FAKE_DOC_CB),
     decryptCallback: async (raw) => JSON.parse(raw),
     WEBHOOK_SERVER_URL: 'http://mock-webhook',
